@@ -12,21 +12,17 @@ import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 import zonesJson from '../../data/zones.json';
 
 // ──────────────────────────────────────────────────────────
-//  DEMO MODE — active when .env is not yet configured
+//  DEMO MODE — active when .env is not configured or init fails
 // ──────────────────────────────────────────────────────────
 const CONFIGURED = !!(
   import.meta.env.VITE_FIREBASE_API_KEY &&
   import.meta.env.VITE_FIREBASE_API_KEY !== 'your_api_key_here'
 );
 
-export const DEMO_MODE = !CONFIGURED;
-
-if (DEMO_MODE) {
-  console.info('[GridWise] Running in DEMO MODE — copy .env.example → .env and add your Firebase config to connect live data.');
-}
+let DEMO_MODE_FLAG = !CONFIGURED;
 
 // ──────────────────────────────────────────────────────────
-//  FIREBASE INIT (only when configured)
+//  FIREBASE INIT (only when configured — with full error catch)
 // ──────────────────────────────────────────────────────────
 const firebaseConfig = {
   apiKey:            import.meta.env.VITE_FIREBASE_API_KEY,
@@ -41,12 +37,25 @@ const firebaseConfig = {
 let app = null, database = null, auth = null, messaging = null;
 
 if (CONFIGURED) {
-  app      = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
-  database = getDatabase(app);
-  auth     = getAuth(app);
-  try { messaging = getMessaging(app); } catch { console.warn('[FCM] Messaging unavailable'); }
+  try {
+    app      = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
+    database = getDatabase(app);
+    auth     = getAuth(app);
+    try { messaging = getMessaging(app); } catch { /* FCM optional */ }
+  } catch (err) {
+    console.warn('[GridWise] Firebase init failed — falling back to DEMO MODE:', err.message);
+    DEMO_MODE_FLAG = true;
+    database = null;
+    auth = null;
+    messaging = null;
+  }
 }
 
+if (DEMO_MODE_FLAG) {
+  console.info('[GridWise] Running in DEMO MODE — using simulated data. Add real Firebase config to .env to connect.');
+}
+
+export const DEMO_MODE = DEMO_MODE_FLAG;
 export { database, auth, messaging };
 
 // ─────────────────────────────────────────────────────────
@@ -102,7 +111,20 @@ export function subscribeToZones(callback) {
   }
 
   const zonesRef = ref(database, '/zones');
-  const handler = (snapshot) => callback(snapshot.val() || {});
+  let seededFallback = false;
+  const handler = (snapshot) => {
+    const data = snapshot.val();
+    if (data && Object.keys(data).length > 0) {
+      callback(data);
+    } else if (!seededFallback) {
+      // Database empty — show local JSON as fallback until seed.py populates it
+      seededFallback = true;
+      const fallback = {};
+      zonesJson.zones.forEach(z => { fallback[z.zoneId] = { ...z, status: 'normal', currentLoad: 40 + Math.random() * 40 }; });
+      callback(fallback);
+      console.info('[GridWise] Database empty — using local zone data. Run `python data/seed.py` to populate.');
+    }
+  };
   onValue(zonesRef, handler);
   return () => off(zonesRef, 'value', handler);
 }
