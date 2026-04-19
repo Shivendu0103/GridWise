@@ -1,0 +1,224 @@
+{
+  "zones": [
+    {
+      "zoneId": "DL-01",
+      "name": "Delhi Central",
+      "state": "Delhi",
+      "city": "New Delhi",
+      "capacity_MW": 4200,
+      "currentLoad": 72,
+      "lat": 28.6139,
+      "lng": 77.209,
+      "bounds": { "north": 28.71, "south": 28.51, "east": 77.32, "west": 77.09 }
+    },
+    {
+      "zoneId": "MH-01",
+      "name": "Mumbai Metro",
+      "state": "Maharashtra",
+      "city": "Mumbai",
+      "capacity_MW": 5800,
+      "currentLoad": 68,
+      "lat": 19.076,
+      "lng": 72.8777,
+      "bounds": { "north": 19.27, "south": 18.89, "east": 73.01, "west": 72.77 }
+    },
+    {
+      "zoneId": "KA-01",
+      "name": "Bengaluru Grid",
+      "state": "Karnataka",
+      "city": "Bengaluru",
+      "capacity_MW": 3900,
+      "currentLoad": 55,
+      "lat": 12.9716,
+      "lng": 77.5946,
+      "bounds": { "north": 13.14, "south": 12.82, "east": 77.75, "west": 77.46 }
+    },
+    {
+      "zoneId": "TN-01",
+      "name": "Chennai Zone",
+      "state": "Tamil Nadu",
+      "city": "Chennai",
+      "capacity_MW": 3100,
+      "currentLoad": 61,
+      "lat": 13.0827,
+      "lng": 80.2707,
+      "bounds": { "north": 13.23, "south": 12.94, "east": 80.35, "west": 80.19 }
+    },
+    {
+      "zoneId": "WB-01",
+      "name": "Kolkata East",
+      "state": "West Bengal",
+      "city": "Kolkata",
+      "capacity_MW": 2800,
+      "currentLoad": 78,
+      "lat": 22.5726,
+      "lng": 88.3639,
+      "bounds": { "north": 22.65, "south": 22.49, "east": 88.44, "west": 88.29 }
+    },
+    {
+      "zoneId": "TS-01",
+      "name": "Hyderabad Grid",
+      "state": "Telangana",
+      "city": "Hyderabad",
+      "capacity_MW": 2600,
+      "currentLoad": 49,
+      "lat": 17.385,
+      "lng": 78.4867,
+      "bounds": { "north": 17.54, "south": 17.23, "east": 78.62, "west": 78.35 }
+    },
+    {
+      "zoneId": "GJ-01",
+      "name": "Ahmedabad Zone",
+      "state": "Gujarat",
+      "city": "Ahmedabad",
+      "capacity_MW": 2400,
+      "currentLoad": 42,
+      "lat": 23.0225,
+      "lng": 72.5714,
+      "bounds": { "north": 23.12, "south": 22.93, "east": 72.68, "west": 72.47 }
+    },
+    {
+      "zoneId": "RJ-01",
+      "name": "Jaipur Desert",
+      "state": "Rajasthan",
+      "city": "Jaipur",
+      "capacity_MW": 1800,
+      "currentLoad": 35,
+      "lat": 26.9124,
+      "lng": 75.7873,
+      "bounds": { "north": 27.01, "south": 26.82, "east": 75.9, "west": 75.69 }
+    },
+    {
+      "zoneId": "MP-01",
+      "name": "Bhopal Zone",
+      "state": "Madhya Pradesh",
+      "city": "Bhopal",
+      "capacity_MW": 1600,
+      "currentLoad": 66,
+      "lat": 23.2599,
+      "lng": 77.4126,
+      "bounds": { "north": 23.35, "south": 23.17, "east": 77.52, "west": 77.31 }
+    },
+    {
+      "zoneId": "UP-01",
+      "name": "Lucknow Grid",
+      "state": "Uttar Pradesh",
+      "city": "Lucknow",
+      "capacity_MW": 2200,
+      "currentLoad": 88,
+      "lat": 26.8467,
+      "lng": 80.9462,
+      "bounds": { "north": 26.95, "south": 26.74, "east": 81.06, "west": 80.84 }
+    },
+    {
+      "zoneId": "UP-02",
+      "name": "Kanpur Industrial",
+      "state": "Uttar Pradesh",
+      "city": "Kanpur",
+      "capacity_MW": 1900,
+      "currentLoad": 91,
+      "lat": 26.4499,
+      "lng": 80.3319,
+      "bounds": { "north": 26.54, "south": 26.36, "east": 80.44, "west": 80.22 }
+    },
+    {
+      "zoneId": "PB-01",
+      "name": "Chandigarh Grid",
+      "state": "Punjab",
+      "city": "Chandigarh",
+      "capacity_MW": 1200,
+      "currentLoad": 30,
+      "lat": 30.7333,
+      "lng": 76.7794,
+      "bounds": { "north": 30.8, "south": 30.67, "east": 76.85, "west": 76.71 }
+    },
+    {
+      "zoneId": "HR-01",
+      "name": "Gurugram Zone",
+      "state": "Haryana",
+      "city": "Gurugram",
+      "capacity_MW": 1400,
+      "currentLoad": 74,
+      "lat": 28.4595,
+      "lng": 77.0266,
+      "bounds": { "north": 28.54, "south": 28.38, "east": 77.12, "west": 76.93 }
+    },
+    {
+      "zoneId": "OR-01",
+      "name": "Bhubaneswar Grid",
+      "state": "Odisha",
+      "city": "Bhubaneswar",
+      "capacity_MW": 1100,
+      "currentLoad": 53,
+      "lat": 20.2961,
+      "lng": 85.8245,
+      "bounds": { "north": 20.38, "south": 20.21, "east": 85.91, "west": 85.74 }
+    },
+    {
+      "zoneId": "KL-01",
+      "name": "Kochi Zone",
+      "state": "Kerala",
+      "city": "Kochi",
+      "capacity_MW": 900,
+      "currentLoad": 58,
+      "lat": 9.9312,
+      "lng": 76.2673,
+      "bounds": { "north": 10.02, "south": 9.84, "east": 76.35, "west": 76.18 }
+    },
+    {
+      "zoneId": "AS-01",
+      "name": "Guwahati Grid",
+      "state": "Assam",
+      "city": "Guwahati",
+      "capacity_MW": 700,
+      "currentLoad": 44,
+      "lat": 26.1445,
+      "lng": 91.7362,
+      "bounds": { "north": 26.22, "south": 26.07, "east": 91.82, "west": 91.65 }
+    },
+    {
+      "zoneId": "JH-01",
+      "name": "Ranchi Industrial",
+      "state": "Jharkhand",
+      "city": "Ranchi",
+      "capacity_MW": 800,
+      "currentLoad": 62,
+      "lat": 23.3441,
+      "lng": 85.3096,
+      "bounds": { "north": 23.43, "south": 23.26, "east": 85.4, "west": 85.22 }
+    },
+    {
+      "zoneId": "CG-01",
+      "name": "Raipur Power",
+      "state": "Chhattisgarh",
+      "city": "Raipur",
+      "capacity_MW": 950,
+      "currentLoad": 47,
+      "lat": 21.2514,
+      "lng": 81.6296,
+      "bounds": { "north": 21.34, "south": 21.16, "east": 81.72, "west": 81.54 }
+    },
+    {
+      "zoneId": "MH-02",
+      "name": "Pune Grid",
+      "state": "Maharashtra",
+      "city": "Pune",
+      "capacity_MW": 2100,
+      "currentLoad": 57,
+      "lat": 18.5204,
+      "lng": 73.8567,
+      "bounds": { "north": 18.62, "south": 18.42, "east": 73.96, "west": 73.76 }
+    },
+    {
+      "zoneId": "AP-01",
+      "name": "Visakhapatnam",
+      "state": "Andhra Pradesh",
+      "city": "Visakhapatnam",
+      "capacity_MW": 1300,
+      "currentLoad": 40,
+      "lat": 17.6868,
+      "lng": 83.2185,
+      "bounds": { "north": 17.78, "south": 17.59, "east": 83.31, "west": 83.13 }
+    }
+  ]
+}
