@@ -25,7 +25,7 @@ GridWise tackles India's real-time supply-demand mismatch by combining **operato
 
 | Additional View 1 | Additional View 2 |
 |---|---|
-| ![View 1](screenshots/extra1.png) | ![View 2](screenshots/extra2.png) |
+| ![View 1](screenshots/dashboard_alt.png) | ![View 2](screenshots/extra2.png) |
 | Detailed panel or feature view | Detailed panel or feature view |
 
 ---
