@@ -1,6 +1,6 @@
 # GridWise ⚡
 
-> **AI-powered electricity grid management platform for India** — Google Solution Challenge 2026
+> **AI-powered electricity grid management platform for India**
 
 GridWise tackles India's real-time supply-demand mismatch by combining **operator intelligence** (AI-predicted overloads, load shifting) with **citizen-driven demand reduction** (gamified nudges, crowdsourced reports) on a single live platform.
 
@@ -276,7 +276,6 @@ GridWise is calibrated for India's unique grid characteristics:
 
 ## 🙏 Acknowledgements
 
-- **Google Solution Challenge 2026** for the problem statement and motivation
 - **United Nations SDG 7** — Affordable and Clean Energy
 - **India's Central Electricity Authority** — for open load data that informed simulation parameters
 - **Firebase** — for making real-time infrastructure accessible to solo developers
@@ -285,4 +284,4 @@ GridWise is calibrated for India's unique grid characteristics:
 
 ## 📄 License
 
-MIT © 2026 Shivendu — Built for Google Solution Challenge 2026
+MIT © 2026 Shivendu

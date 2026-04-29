@@ -86,7 +86,7 @@ export default function Sidebar() {
           <span>Live Feed Active</span>
         </div>
         <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 6 }}>
-          Google Solution Challenge 2026
+          v1.0.0
         </div>
       </div>
     </aside>
