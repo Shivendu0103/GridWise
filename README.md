@@ -30,7 +30,7 @@ GridWise tackles India's real-time supply-demand mismatch by combining **operato
 ### ⚡ Supply Side — Operator Tools
 | Feature | Description |
 |---|---|
-| **Live Zone Heatmap** | 20 Indian grid zones visualised on Google Maps with polygon overlays coloured by load status |
+| **Live Zone Heatmap** | 20 Indian grid zones visualised on an interactive map with polygon overlays coloured by load status |
 | **AI Peak Predictions** | Rule-based predictor (→ LSTM upgrade planned) forecasts zone overloads 1–2 hours ahead with confidence score |
 | **24h Load Curve** | Recharts area chart showing historical + live national grid load vs. time |
 | **Danger Zones Panel** | Top-3 highest-load zones pinned at all times with one-click targeting |
@@ -69,7 +69,7 @@ GridWise tackles India's real-time supply-demand mismatch by combining **operato
 ┌──────────────────────────────────────────────────────────┐
 │                        FRONTEND                          │
 │  React 18 + Vite  ·  React Router v6  ·  Recharts       │
-│  Google Maps JS API (heatmap)  ·  Vanilla CSS            │
+│  React Leaflet (OSM tiles)  ·  Vanilla CSS               │
 └──────────────────────┬───────────────────────────────────┘
                        │ Firebase SDK (realtime subscriptions)
 ┌──────────────────────▼───────────────────────────────────┐
@@ -130,7 +130,7 @@ GridWise tackles India's real-time supply-demand mismatch by combining **operato
 |---|---|
 | **Frontend** | React 18, Vite, React Router v6 |
 | **Charts** | Recharts (AreaChart, LineChart, ResponsiveContainer) |
-| **Maps** | Google Maps JavaScript API + Visualization Library (heatmaps) |
+| **Maps** | React Leaflet (OpenStreetMap tiles) |
 | **Animations** | Vanilla CSS keyframes, Web Animations API |
 | **Styling** | Custom dark design system (vanilla CSS, CSS variables, no Tailwind) |
 | **Database** | Firebase Realtime Database |
@@ -166,9 +166,7 @@ VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
 VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 VITE_FIREBASE_APP_ID=your_app_id
 
-# Google Maps JavaScript API (enable at console.cloud.google.com)
-# Required APIs: Maps JavaScript API, Maps Visualization (heatmaps)
-VITE_GOOGLE_MAPS_API_KEY=your_maps_api_key
+# (No API key needed for the Leaflet map as it uses OpenStreetMap)
 
 # FCM VAPID key (Firebase Console → Cloud Messaging → Web Push)
 VITE_FIREBASE_VAPID_KEY=your_vapid_key
@@ -218,7 +216,7 @@ GridWise/
 │   └── components/
 │       ├── Sidebar.jsx            # Navigation sidebar with live alert badge
 │       ├── ZoneCard.jsx           # Zone status card with load bar + sparkline
-│       ├── ZoneMap.jsx            # Google Maps polygon heatmap
+│       ├── ZoneMap.jsx            # React Leaflet polygon heatmap
 │       ├── AlertBanner.jsx        # Toast alert stack with sound toggle
 │       └── NudgeCard.jsx          # AI nudge card with swipe + countdown
 ├── data/

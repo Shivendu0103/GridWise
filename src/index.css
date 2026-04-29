@@ -955,5 +955,16 @@ input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
   0%   { opacity: 1; transform: translate(-50%,-50%) scale(0.5); }
   70%  { opacity: 1; }
   100% { opacity: 0; transform: translate(calc(-50% + var(--tx,50px)), calc(-50% + var(--ty,-60px))) scale(1.1); }
+/* ──────────────────────────────────────────────
+   LEAFLET TOOLTIP
+   ────────────────────────────────────────────── */
+.custom-leaflet-tooltip {
+  background: white !important;
+  border: 1px solid rgba(0,0,0,0.1) !important;
+  border-radius: 6px !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+}
+.custom-leaflet-tooltip::before {
+  border-top-color: white !important;
 }
 
