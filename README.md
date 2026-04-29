@@ -15,10 +15,12 @@ GridWise tackles India's real-time supply-demand mismatch by combining **operato
 
 | Grid Dashboard | Energy Coins | Load Shifting |
 |---|---|---|
+| ![Dashboard](screenshots/dashboard.png) | ![Wallet](screenshots/wallet.png) | ![Load Shifting](screenshots/loadshift.png) |
 | Real-time zone heatmap with AI predictions | Gamified nudges, leaderboard, coin wallet | FCM demand-response scheduler |
 
 | Citizen Reports | Micro-Grid Console |
 |---|---|
+| ![Citizen Reports](screenshots/citizen.png) | ![Micro-Grid Console](screenshots/microgrid.png) |
 | Crowdsourced outage feed with geolocation | Solar + battery simulator with crisis playback |
 
 ---
