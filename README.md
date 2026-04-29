@@ -23,6 +23,11 @@ GridWise tackles India's real-time supply-demand mismatch by combining **operato
 | ![Citizen Reports](screenshots/citizen.png) | ![Micro-Grid Console](screenshots/microgrid.png) |
 | Crowdsourced outage feed with geolocation | Solar + battery simulator with crisis playback |
 
+| Additional View 1 | Additional View 2 |
+|---|---|
+| ![View 1](screenshots/extra1.png) | ![View 2](screenshots/extra2.png) |
+| Detailed panel or feature view | Detailed panel or feature view |
+
 ---
 
 ## 🚀 Features
