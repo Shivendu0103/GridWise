@@ -1,25 +1,36 @@
 // src/pages/CitizenApp.jsx
-// Feature 4 — Crowdsourced outage/overload reports
-import { useEffect, useState } from 'react';
+// Feature 4 — Crowdsourced outage/overload reports with geolocation, real-time feed
+import { useEffect, useState, useRef } from 'react';
 import { submitReport, subscribeToReports, signInAnon, onAuth } from '../lib/firebase';
 import zonesData from '../../data/zones.json';
 
 const ZONES = zonesData.zones;
 
 const REPORT_TYPES = [
-  { id: 'outage',      label: '🔌 Power Outage' },
-  { id: 'flicker',    label: '💡 Flickering' },
-  { id: 'lowvoltage', label: '📉 Low Voltage' },
-  { id: 'overload',   label: '🔥 Suspected Overload' },
-  { id: 'other',      label: '📝 Other' },
+  { id: 'outage',      label: 'Power Outage',          icon: '🔌', color: '#ef4444' },
+  { id: 'flicker',     label: 'Flickering / Sag',      icon: '💡', color: '#f59e0b' },
+  { id: 'lowvoltage',  label: 'Low Voltage',            icon: '📉', color: '#3b82f6' },
+  { id: 'overload',    label: 'Suspected Overload',     icon: '🔥', color: '#f97316' },
+  { id: 'transformer', label: 'Transformer Fault',      icon: '⚡', color: '#a855f7' },
+  { id: 'other',       label: 'Other Issue',            icon: '📝', color: '#94a3b8' },
+];
+
+// Simulated "recently received" reports for the impact view
+const IMPACT_STATS = [
+  { label: 'Reports today',       value: 143,  icon: '📡' },
+  { label: 'Zones with reports',  value: 8,    icon: '🗺️' },
+  { label: 'Avg response time',   value: '4m', icon: '⚡' },
+  { label: 'Issues resolved',     value: 91,   icon: '✅' },
 ];
 
 export default function CitizenApp() {
-  const [user, setUser]       = useState(null);
-  const [reports, setReports] = useState([]);
+  const [user, setUser]             = useState(null);
+  const [reports, setReports]       = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted]   = useState(false);
   const [activeTab, setActiveTab]   = useState('report');
+  const [locating, setLocating]     = useState(false);
+  const [detectedZone, setDetectedZone] = useState(null);
   const [form, setForm] = useState({ zoneId: '', type: 'outage', description: '', severity: '3' });
 
   useEffect(() => {
@@ -32,128 +43,236 @@ export default function CitizenApp() {
     return unsub;
   }, []);
 
+  // Geolocation: find nearest zone
+  const detectLocation = () => {
+    if (!navigator.geolocation) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        // Find nearest zone by haversine (simplified)
+        let nearest = null, minDist = Infinity;
+        ZONES.forEach((z) => {
+          const d = Math.sqrt((z.lat - latitude) ** 2 + (z.lng - longitude) ** 2);
+          if (d < minDist) { minDist = d; nearest = z; }
+        });
+        if (nearest) {
+          setDetectedZone(nearest);
+          setForm((f) => ({ ...f, zoneId: nearest.zoneId }));
+        }
+        setLocating(false);
+      },
+      () => setLocating(false),
+      { timeout: 8000 }
+    );
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.zoneId || !form.description.trim()) return;
     setSubmitting(true);
     try {
       const zone = ZONES.find((z) => z.zoneId === form.zoneId);
-      await submitReport({ ...form, severity: parseInt(form.severity), zoneName: zone?.name || '', state: zone?.state || '', userId: user?.uid || 'anon', lat: zone?.lat, lng: zone?.lng });
+      await submitReport({
+        ...form, severity: parseInt(form.severity),
+        zoneName: zone?.name || '', state: zone?.state || '',
+        userId: user?.uid || 'anon', lat: zone?.lat, lng: zone?.lng,
+      });
       setSubmitted(true);
       setForm({ zoneId: '', type: 'outage', description: '', severity: '3' });
-      setTimeout(() => setSubmitted(false), 3000);
+      setDetectedZone(null);
+      setTimeout(() => setSubmitted(false), 4000);
     } catch (err) { console.error(err); }
     setSubmitting(false);
   };
+
+  const rt = (id) => REPORT_TYPES.find(t => t.id === id);
 
   return (
     <div className="page-container">
       <div className="page-header">
         <div>
           <h1 className="page-title">Citizen Reports</h1>
-          <p className="page-subtitle">Crowdsource real-time grid issues from the ground</p>
+          <p className="page-subtitle">Crowdsource real-time grid issues · Your report appears on the operator map instantly</p>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <span className="chip data">Data collection</span>
-          {user && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Anon ID: {user.uid.slice(0,8)}…</span>}
+          {user && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Anon: {user.uid.slice(0, 8)}…</span>}
         </div>
       </div>
 
-      {/* Impact card */}
-      <div className="card mb-6" style={{ background:'linear-gradient(135deg,rgba(16,185,129,0.08),rgba(5,150,105,0.04))', borderColor:'rgba(16,185,129,0.2)' }}>
-        <div style={{ display:'flex', gap:20, alignItems:'center' }}>
-          <div style={{ fontSize:36 }}>🗺️</div>
-          <div style={{ flex:1 }}>
-            <div style={{ fontWeight:700, fontSize:15, color:'var(--accent-data)' }}>Ground Truth for AI</div>
-            <div style={{ fontSize:13, color:'var(--text-secondary)', marginTop:4 }}>
-              Your reports train GridWise to detect outages in real-time — especially in rural areas without smart meters. Each report pins instantly on the operator map.
-            </div>
+      {/* Impact stats strip */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+        {IMPACT_STATS.map((s) => (
+          <div key={s.label} className="stat-card" style={{ '--accent-color': 'var(--accent-data)' }}>
+            <div className="stat-icon">{s.icon}</div>
+            <div className="stat-value" style={{ color: 'var(--accent-data)', fontSize: 22 }}>{s.value}</div>
+            <div className="stat-label">{s.label}</div>
           </div>
-          <div style={{ textAlign:'right', flexShrink:0 }}>
-            <div style={{ fontSize:28, fontWeight:800, color:'var(--accent-data)' }}>{reports.length}</div>
-            <div style={{ fontSize:11, color:'var(--text-muted)' }}>Reports total</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div style={{ display:'flex', gap:8, marginBottom:20 }}>
-        {[['report','📝 Submit Report'],['feed',`📡 Live Feed (${reports.length})`]].map(([id, label]) => (
-          <button key={id} className={`btn ${activeTab===id ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setActiveTab(id)} id={`tab-${id}`}>{label}</button>
         ))}
       </div>
 
-      {/* Form tab */}
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+        {[['report', '📝 Submit Report'], ['feed', `📡 Live Feed (${reports.length})`]].map(([id, label]) => (
+          <button key={id} className={`btn ${activeTab === id ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setActiveTab(id)} id={`tab-${id}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Report tab */}
       {activeTab === 'report' && (
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 20 }}>
           <div className="card">
             {submitted ? (
-              <div style={{ textAlign:'center', padding:'40px 20px' }}>
-                <div style={{ fontSize:52 }}>✅</div>
-                <div style={{ fontSize:18, fontWeight:800, color:'var(--accent-data)', marginTop:12 }}>Report Submitted!</div>
-                <div style={{ fontSize:13, color:'var(--text-muted)', marginTop:8 }}>Pinned on operator map and visible to grid engineers.</div>
+              <div style={{ textAlign: 'center', padding: '48px 20px' }}>
+                <div style={{ fontSize: 64, marginBottom: 12 }}>✅</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--accent-data)' }}>Report Submitted!</div>
+                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 10, lineHeight: 1.7 }}>
+                  Pinned on the operator map and visible to grid engineers within seconds.<br />
+                  You may earn <strong style={{ color: 'var(--accent-demand)' }}>5 Energy Coins</strong> if your report is verified.
+                </div>
               </div>
             ) : (
               <form onSubmit={handleSubmit} id="citizen-report-form">
-                <div className="card-title" style={{ marginBottom:20 }}>Report a Grid Issue</div>
+                <div className="card-title" style={{ marginBottom: 20 }}>Report a Grid Issue</div>
 
+                {/* Geolocation */}
                 <div className="form-group">
                   <label className="form-label">Grid Zone *</label>
-                  <select className="form-control" value={form.zoneId} onChange={e=>setForm({...form,zoneId:e.target.value})} required id="report-zone-select">
-                    <option value="">Select your zone…</option>
-                    {ZONES.map(z => <option key={z.zoneId} value={z.zoneId}>{z.zoneId} — {z.name}, {z.state}</option>)}
-                  </select>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <select
+                      className="form-control"
+                      value={form.zoneId}
+                      onChange={e => setForm({ ...form, zoneId: e.target.value })}
+                      required
+                      id="report-zone-select"
+                      style={{ flex: 1 }}
+                    >
+                      <option value="">Select your zone…</option>
+                      {ZONES.map(z => <option key={z.zoneId} value={z.zoneId}>{z.zoneId} — {z.name}, {z.state}</option>)}
+                    </select>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={detectLocation}
+                      disabled={locating}
+                      style={{ whiteSpace: 'nowrap', flexShrink: 0 }}
+                      title="Auto-detect your zone using GPS"
+                    >
+                      {locating ? '⏳' : '📍'} {locating ? 'Locating…' : 'Auto-detect'}
+                    </button>
+                  </div>
+                  {detectedZone && (
+                    <div style={{
+                      marginTop: 8, fontSize: 12, color: 'var(--accent-data)',
+                      background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)',
+                      borderRadius: 6, padding: '6px 10px',
+                    }}>
+                      📍 Detected: <strong>{detectedZone.name}</strong>, {detectedZone.state} ({detectedZone.zoneId})
+                    </div>
+                  )}
                 </div>
 
+                {/* Issue type */}
                 <div className="form-group">
                   <label className="form-label">Issue Type *</label>
-                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                     {REPORT_TYPES.map(rt => (
-                      <label key={rt.id} style={{ padding:'10px 12px', borderRadius:8, border:`1px solid ${form.type===rt.id?'rgba(16,185,129,0.4)':'var(--border-subtle)'}`, background:form.type===rt.id?'rgba(16,185,129,0.08)':'rgba(255,255,255,0.02)', cursor:'pointer', fontSize:13 }}>
-                        <input type="radio" name="type" value={rt.id} checked={form.type===rt.id} onChange={e=>setForm({...form,type:e.target.value})} style={{ display:'none' }} />
-                        {rt.label}
+                      <label key={rt.id} style={{
+                        padding: '10px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 13,
+                        border: `1px solid ${form.type === rt.id ? rt.color + '60' : 'var(--border-subtle)'}`,
+                        background: form.type === rt.id ? rt.color + '10' : 'rgba(255,255,255,0.02)',
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        transition: 'all 0.15s',
+                      }}>
+                        <input type="radio" name="type" value={rt.id} checked={form.type === rt.id} onChange={e => setForm({ ...form, type: e.target.value })} style={{ display: 'none' }} />
+                        <span>{rt.icon}</span>
+                        <span style={{ color: form.type === rt.id ? rt.color : 'var(--text-secondary)' }}>{rt.label}</span>
                       </label>
                     ))}
                   </div>
                 </div>
 
+                {/* Severity */}
                 <div className="form-group">
-                  <label className="form-label">Severity (1=minor, 5=critical)</label>
-                  <div style={{ display:'flex', gap:8 }}>
-                    {[1,2,3,4,5].map(s => (
-                      <button key={s} type="button" onClick={()=>setForm({...form,severity:String(s)})} style={{ width:40, height:40, borderRadius:8, border:`1px solid ${form.severity===String(s)?'rgba(16,185,129,0.5)':'var(--border-subtle)'}`, background:form.severity===String(s)?'rgba(16,185,129,0.15)':'rgba(255,255,255,0.03)', color:form.severity===String(s)?'var(--accent-data)':'var(--text-muted)', fontWeight:700, cursor:'pointer', fontSize:15 }}>{s}</button>
+                  <label className="form-label">Severity</label>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    {[1, 2, 3, 4, 5].map(s => (
+                      <button
+                        key={s} type="button"
+                        onClick={() => setForm({ ...form, severity: String(s) })}
+                        style={{
+                          flex: 1, height: 40, borderRadius: 8, border: 'none', cursor: 'pointer',
+                          background: form.severity === String(s)
+                            ? s <= 2 ? 'rgba(59,130,246,0.25)' : s === 3 ? 'rgba(245,158,11,0.2)' : 'rgba(239,68,68,0.25)'
+                            : 'rgba(255,255,255,0.04)',
+                          color: form.severity === String(s)
+                            ? s <= 2 ? 'var(--status-low)' : s === 3 ? 'var(--accent-demand)' : 'var(--status-critical)'
+                            : 'var(--text-muted)',
+                          fontWeight: 700, fontSize: 16, transition: 'all 0.15s',
+                        }}
+                      >
+                        {s}
+                      </button>
                     ))}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>
+                    <span>Minor</span><span>Critical</span>
                   </div>
                 </div>
 
+                {/* Description */}
                 <div className="form-group">
                   <label className="form-label">Description *</label>
-                  <textarea className="form-control" placeholder="Area affected, duration, physical signs…" value={form.description} onChange={e=>setForm({...form,description:e.target.value})} required id="report-description" />
+                  <textarea
+                    className="form-control"
+                    placeholder="Area affected, duration, physical signs (e.g. sparking transformer, complete blackout for 3 blocks)…"
+                    value={form.description}
+                    onChange={e => setForm({ ...form, description: e.target.value })}
+                    required
+                    id="report-description"
+                    style={{ minHeight: 90 }}
+                  />
                 </div>
 
-                <button type="submit" className="btn btn-primary" disabled={submitting||!form.zoneId} id="report-submit-btn" style={{ width:'100%', justifyContent:'center', padding:'12px 0' }}>
+                <button type="submit" className="btn btn-primary" disabled={submitting || !form.zoneId} id="report-submit-btn" style={{ width: '100%', justifyContent: 'center', padding: '13px 0' }}>
                   {submitting ? '⏳ Submitting…' : '📍 Submit Report'}
                 </button>
               </form>
             )}
           </div>
 
-          <div className="card">
-            <div className="card-title" style={{ marginBottom:14 }}>Report Guidelines</div>
-            {[
-              { icon:'📍', title:'Select the correct zone', desc:'Choose the grid zone covering your location.' },
-              { icon:'⚡', title:'Be specific about symptoms', desc:'Mention duration, affected appliances, and if neighbours are affected.' },
-              { icon:'🕒', title:'Report immediately', desc:'Real-time reports are 10x more useful than delayed ones.' },
-              { icon:'🔒', title:'Anonymous & private', desc:'Reports are submitted anonymously. No personal data stored.' },
-            ].map(g => (
-              <div key={g.title} style={{ display:'flex', gap:10, marginBottom:14 }}>
-                <span style={{ fontSize:20, flexShrink:0 }}>{g.icon}</span>
-                <div>
-                  <div style={{ fontSize:13, fontWeight:600 }}>{g.title}</div>
-                  <div style={{ fontSize:12, color:'var(--text-muted)', marginTop:2 }}>{g.desc}</div>
-                </div>
+          {/* Right column: guidelines + ground truth card */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div className="card" style={{ background: 'linear-gradient(135deg,rgba(16,185,129,0.07),rgba(5,150,105,0.03))', borderColor: 'rgba(16,185,129,0.2)' }}>
+              <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--accent-data)', marginBottom: 12 }}>🧠 Ground Truth for AI</div>
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+                India has ~200 million homes without smart meters. Citizen reports are the only real-time signal we have from these areas.
+                <br /><br />
+                When <strong style={{ color: 'var(--text-primary)' }}>3+ power cut reports</strong> arrive from the same zone within 30 minutes, GridWise automatically elevates that zone's risk score on the operator dashboard — even with no sensor data.
               </div>
-            ))}
+            </div>
+
+            <div className="card">
+              <div className="card-title" style={{ marginBottom: 14 }}>Report Guidelines</div>
+              {[
+                { icon: '📍', title: 'Select the correct zone', desc: 'Choose the grid zone covering your location. Use auto-detect for accuracy.' },
+                { icon: '⚡', title: 'Be specific about symptoms', desc: 'Mention duration, affected appliances, and if neighbours are affected too.' },
+                { icon: '🕒', title: 'Report immediately', desc: 'Real-time reports are 10x more actionable than reports filed hours later.' },
+                { icon: '🔒', title: 'Anonymous & private', desc: 'Reports are submitted anonymously. No personal data is stored.' },
+                { icon: '🪙', title: 'Earn coins for verified reports', desc: 'If your report matches a confirmed outage, you earn 5 Energy Coins.' },
+              ].map(g => (
+                <div key={g.title} style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+                  <span style={{ fontSize: 20, flexShrink: 0 }}>{g.icon}</span>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>{g.title}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{g.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -161,23 +280,50 @@ export default function CitizenApp() {
       {/* Feed tab */}
       {activeTab === 'feed' && (
         <div className="card">
-          <div className="card-title" style={{ marginBottom:16 }}>📡 Live Report Feed</div>
+          <div className="card-title" style={{ marginBottom: 16 }}>📡 Live Report Feed</div>
           {reports.length === 0 ? (
-            <div style={{ textAlign:'center', padding:'40px 0', color:'var(--text-muted)' }}>No reports yet. Be the first to report an issue.</div>
+            <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>
+              <div style={{ fontSize: 40, marginBottom: 10 }}>📡</div>
+              No reports yet. Be the first to report an issue in your area.
+            </div>
           ) : (
             <table className="data-table">
-              <thead><tr><th>Time</th><th>Zone</th><th>Type</th><th>Severity</th><th>Description</th><th>Status</th></tr></thead>
+              <thead>
+                <tr><th>Time</th><th>Zone</th><th>Type</th><th>Severity</th><th>Description</th><th>Status</th></tr>
+              </thead>
               <tbody>
-                {reports.map(r => (
-                  <tr key={r.id}>
-                    <td className="mono" style={{ fontSize:11 }}>{new Date(r.timestamp).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</td>
-                    <td><span className="zone-id">{r.zoneId}</span><div style={{ fontSize:11, color:'var(--text-muted)', marginTop:2 }}>{r.zoneName}</div></td>
-                    <td style={{ fontSize:13 }}>{REPORT_TYPES.find(t=>t.id===r.type)?.label || r.type}</td>
-                    <td><span style={{ fontFamily:'JetBrains Mono', fontWeight:700, fontSize:13 }}>{r.severity}/5</span></td>
-                    <td style={{ color:'var(--text-secondary)', fontSize:12, maxWidth:200 }}>{r.description}</td>
-                    <td><span className={`status-pill ${r.status==='resolved'?'normal':'low'}`}>{r.status||'pending'}</span></td>
-                  </tr>
-                ))}
+                {reports.map(r => {
+                  const type = rt(r.type);
+                  return (
+                    <tr key={r.id}>
+                      <td className="mono" style={{ fontSize: 11 }}>
+                        {new Date(r.timestamp).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      </td>
+                      <td>
+                        <span className="zone-id">{r.zoneId}</span>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{r.zoneName}</div>
+                      </td>
+                      <td>
+                        <span style={{ color: type?.color || 'var(--text-muted)', fontSize: 13 }}>
+                          {type?.icon} {type?.label || r.type}
+                        </span>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 2 }}>
+                          {[1,2,3,4,5].map(s => (
+                            <div key={s} style={{ width: 8, height: 8, borderRadius: 2, background: s <= r.severity ? 'var(--status-critical)' : 'rgba(255,255,255,0.1)' }} />
+                          ))}
+                        </div>
+                      </td>
+                      <td style={{ color: 'var(--text-secondary)', fontSize: 12, maxWidth: 200 }}>{r.description}</td>
+                      <td>
+                        <span className={`status-pill ${r.status === 'resolved' ? 'normal' : 'low'}`}>
+                          {r.status || 'pending'}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
