@@ -4,6 +4,51 @@
    DESIGN TOKENS
    ────────────────────────────────────────────── */
 :root {
+  /* LIGHT THEME (Default) */
+  /* Backgrounds */
+  --bg-base:        #f0f2f5;
+  --bg-surface:     #ffffff;
+  --bg-card:        #ffffff;
+  --bg-card-hover:  #fafafa;
+  --bg-glass:       rgba(255, 255, 255, 0.7);
+
+  /* Brand - UXBooster Green */
+  --accent-supply:  #10b981;   
+  --accent-demand:  #f59e0b;   
+  --accent-data:    #3b82f6;   
+
+  /* Status */
+  --status-normal:    #10b981;
+  --status-low:       #3b82f6;
+  --status-surplus:   #6366f1;
+  --status-overload:  #f59e0b;
+  --status-critical:  #ef4444;
+
+  /* Text */
+  --text-primary:   #111827;
+  --text-secondary: #4b5563;
+  --text-muted:     #6b7280;
+
+  /* Borders */
+  --border-subtle:  rgba(0,0,0,0.06);
+  --border-accent:  rgba(16,185,129,0.3);
+
+  /* Spacing */
+  --sidebar-width: 240px;
+  --header-height: 60px;
+
+  /* Radius - rounded like reference */
+  --radius-sm:  8px;
+  --radius-md:  16px;
+  --radius-lg:  20px;
+  --radius-xl:  24px;
+
+  /* Shadows - soft and clean */
+  --shadow-card:  0 4px 12px rgba(0,0,0,0.03);
+  --shadow-glow:  0 0 20px rgba(16,185,129,0.15);
+}
+
+html.dark:root {
   /* Backgrounds */
   --bg-base:        #080c18;
   --bg-surface:     #0f1629;
@@ -12,9 +57,9 @@
   --bg-glass:       rgba(20, 26, 46, 0.7);
 
   /* Brand */
-  --accent-supply:  #00e5ff;   /* cyan — supply-side */
-  --accent-demand:  #f59e0b;   /* amber — demand-side */
-  --accent-data:    #10b981;   /* emerald — data collection */
+  --accent-supply:  #10b981;   
+  --accent-demand:  #f59e0b;   
+  --accent-data:    #3b82f6;   
 
   /* Status */
   --status-normal:    #10b981;
@@ -30,21 +75,21 @@
 
   /* Borders */
   --border-subtle:  rgba(255,255,255,0.06);
-  --border-accent:  rgba(0,229,255,0.2);
+  --border-accent:  rgba(16,185,129,0.3);
 
   /* Spacing */
   --sidebar-width: 240px;
   --header-height: 60px;
 
   /* Radius */
-  --radius-sm:  6px;
-  --radius-md:  12px;
-  --radius-lg:  18px;
+  --radius-sm:  8px;
+  --radius-md:  16px;
+  --radius-lg:  20px;
   --radius-xl:  24px;
 
   /* Shadows */
   --shadow-card:  0 4px 24px rgba(0,0,0,0.4);
-  --shadow-glow:  0 0 20px rgba(0,229,255,0.15);
+  --shadow-glow:  0 0 20px rgba(16,185,129,0.15);
 }
 
 /* ──────────────────────────────────────────────
@@ -182,12 +227,17 @@ body {
 
 .nav-item:hover {
   color: var(--text-primary);
-  background: rgba(255,255,255,0.05);
+  background: rgba(128, 128, 128, 0.1);
 }
 
 .nav-item.active {
-  color: var(--accent-supply);
-  background: rgba(0,229,255,0.08);
+  color: var(--bg-base);
+  background: var(--text-primary);
+  border-radius: 9999px; /* Pill shape */
+}
+
+.nav-item.active .nav-icon {
+  color: var(--bg-base);
 }
 
 .nav-item .nav-icon { font-size: 16px; flex-shrink: 0; }
@@ -385,7 +435,7 @@ body {
 
 .load-bar-track {
   height: 6px;
-  background: rgba(255,255,255,0.06);
+  background: var(--border-subtle);
   border-radius: 3px;
   overflow: hidden;
 }
@@ -427,11 +477,11 @@ body {
 .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,229,255,0.3); }
 
 .btn-secondary {
-  background: rgba(255,255,255,0.06);
+  background: var(--border-subtle);
   color: var(--text-primary);
   border: 1px solid var(--border-subtle);
 }
-.btn-secondary:hover { background: rgba(255,255,255,0.10); }
+.btn-secondary:hover { background: rgba(128, 128, 128, 0.2); }
 
 .btn-danger {
   background: rgba(239,68,68,0.12);
@@ -503,7 +553,7 @@ body {
 
 .zone-card.selected {
   border-color: var(--accent-supply);
-  background: rgba(0,229,255,0.04);
+  background: rgba(16,185,129,0.08);
 }
 
 .zone-card-header {
@@ -519,7 +569,7 @@ body {
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px;
   color: var(--text-muted);
-  background: rgba(255,255,255,0.04);
+  background: var(--border-subtle);
   padding: 2px 6px;
   border-radius: 4px;
 }

@@ -7,6 +7,7 @@ import CitizenApp from './pages/CitizenApp';
 import CoinWallet from './pages/CoinWallet';
 import LoadShift from './pages/LoadShift';
 import MicroGrid from './pages/MicroGrid';
+import { ThemeProvider } from './components/ThemeContext';
 
 // Error boundary so one broken component doesn't kill the whole app
 class ErrorBoundary extends Component {
@@ -24,19 +25,19 @@ class ErrorBoundary extends Component {
     if (this.state.hasError) {
       return (
         <div style={{
-          padding: 40, textAlign: 'center', color: '#94a3b8',
+          padding: 40, textAlign: 'center', color: 'var(--text-secondary)',
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16
         }}>
           <span style={{ fontSize: 48 }}>⚠️</span>
-          <h2 style={{ color: '#e2e8f0', margin: 0 }}>Something went wrong</h2>
+          <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Something went wrong</h2>
           <p style={{ maxWidth: 420, lineHeight: 1.6 }}>
             {this.state.error?.message || 'An unexpected error occurred.'}
           </p>
           <button
             onClick={() => { this.setState({ hasError: false, error: null }); }}
             style={{
-              padding: '8px 20px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)',
-              background: 'rgba(255,255,255,0.05)', color: '#e2e8f0', cursor: 'pointer', fontSize: 14
+              padding: '8px 20px', borderRadius: 8, border: '1px solid var(--border-subtle)',
+              background: 'var(--bg-card)', color: 'var(--text-primary)', cursor: 'pointer', fontSize: 14
             }}
           >
             Try Again
@@ -50,23 +51,25 @@ class ErrorBoundary extends Component {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <div className="app-layout">
-        <Sidebar />
-        <div className="main-content">
-          <ErrorBoundary>
-            <Routes>
-              <Route path="/"          element={<Dashboard />} />
-              <Route path="/citizen"   element={<CitizenApp />} />
-              <Route path="/wallet"    element={<CoinWallet />} />
-              <Route path="/loadshift" element={<LoadShift />} />
-              <Route path="/microgrid" element={<MicroGrid />} />
-              <Route path="*"          element={<Navigate to="/" replace />} />
-            </Routes>
-          </ErrorBoundary>
+    <ThemeProvider>
+      <BrowserRouter>
+        <div className="app-layout">
+          <Sidebar />
+          <div className="main-content">
+            <ErrorBoundary>
+              <Routes>
+                <Route path="/"          element={<Dashboard />} />
+                <Route path="/citizen"   element={<CitizenApp />} />
+                <Route path="/wallet"    element={<CoinWallet />} />
+                <Route path="/loadshift" element={<LoadShift />} />
+                <Route path="/microgrid" element={<MicroGrid />} />
+                <Route path="*"          element={<Navigate to="/" replace />} />
+              </Routes>
+            </ErrorBoundary>
+          </div>
         </div>
-      </div>
-    </BrowserRouter>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }
 

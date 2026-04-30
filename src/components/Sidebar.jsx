@@ -1,6 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { subscribeToAlerts } from '../lib/firebase';
+import { useTheme } from './ThemeContext';
 
 const NAV_ITEMS = [
   {
@@ -28,6 +29,7 @@ const NAV_ITEMS = [
 export default function Sidebar() {
   const location = useLocation();
   const [alertCount, setAlertCount] = useState(0);
+  const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
     const unsub = subscribeToAlerts((alerts) => setAlertCount(alerts.length));
@@ -85,8 +87,18 @@ export default function Sidebar() {
           <div className="live-dot" />
           <span>Live Feed Active</span>
         </div>
-        <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 6 }}>
-          v1.0.0
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
+          <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+            v1.0.0
+          </div>
+          <button 
+            onClick={toggleTheme} 
+            className="btn btn-sm btn-secondary theme-toggle-btn" 
+            title="Toggle theme"
+            style={{ borderRadius: '50%', padding: 6, width: 28, height: 28, display: 'grid', placeItems: 'center' }}
+          >
+            {theme === 'light' ? '🌙' : '☀️'}
+          </button>
         </div>
       </div>
     </aside>
