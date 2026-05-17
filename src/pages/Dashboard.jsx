@@ -1,9 +1,10 @@
 // src/pages/Dashboard.jsx
 // Feature 1 — Grid Operator Dashboard
 // Real-time zone monitoring, overload alerts, summary stats
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { subscribeToZones, subscribeToPredictions } from '../lib/firebase';
+import { fetchPredictions } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
 import AlertBanner from '../components/AlertBanner';
 import ZoneCard from '../components/ZoneCard';
@@ -33,9 +34,9 @@ function generateSpark(base) {
 }
 
 const PREDICTION_ACTIONS = {
-  high: 'Dispatch demand nudges, alert large consumers.',
-  medium: 'Monitor closely, prepare load shift request.',
-  low: 'No action required — operating within safe parameters.',
+  critical: 'Dispatch demand nudges, alert large consumers.',
+  warning: 'Monitor closely, prepare load shift request.',
+  normal: 'No action required — operating within safe parameters.',
 };
 
 export default function Dashboard() {
@@ -48,6 +49,9 @@ export default function Dashboard() {
   const [lastUpdate, setLastUpdate] = useState(null);
   const [chartData] = useState(gen24hCurve);
   const [predictions, setPredictions] = useState([]);
+  const [mlLoading, setMlLoading] = useState(true);
+  const [mlOffline, setMlOffline] = useState(false);
+  const [mlModelInfo, setMlModelInfo] = useState(null);
   const mapRef = useRef(null);
 
   const handleLogout = async () => {
@@ -63,10 +67,44 @@ export default function Dashboard() {
     return unsub;
   }, []);
 
-  useEffect(() => {
-    const unsub = subscribeToPredictions(setPredictions);
-    return unsub;
+  // ── ML Predictions: fetch from FastAPI backend, fallback to Firebase ──
+  const loadPredictions = useCallback(async () => {
+    setMlLoading(true);
+    try {
+      const data = await fetchPredictions();
+      // Map API response to the shape the panel expects
+      const mapped = data.predictions.map(p => ({
+        zoneId: p.zone_id,
+        zone: p.zone_name,
+        risk: p.risk,
+        confidence: p.confidence,
+        peakAt: p.predicted_for,
+        predictedLoad: p.predicted_load_pct,
+        predictedMW: p.predicted_load_mw,
+        currentLoad: p.current_load_pct,
+        capacityMW: p.capacity_mw,
+      }));
+      setPredictions(mapped);
+      setMlModelInfo(data.model);
+      setMlOffline(false);
+    } catch {
+      // Fallback: read cached predictions from Firebase RTDB
+      setMlOffline(true);
+      const unsub = subscribeToPredictions((fbPreds) => {
+        if (fbPreds.length > 0) setPredictions(fbPreds);
+      });
+      // Clean up firebase listener after grabbing snapshot
+      setTimeout(() => unsub?.(), 2000);
+    } finally {
+      setMlLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadPredictions();
+    const interval = setInterval(loadPredictions, 5 * 60 * 1000); // every 5 min
+    return () => clearInterval(interval);
+  }, [loadPredictions]);
 
   const zoneList = useMemo(() => Object.values(zones), [zones]);
 
@@ -239,48 +277,64 @@ export default function Dashboard() {
           <div className="card" style={{ flex: 1 }}>
             <div className="card-header">
               <span className="card-title">🤖 AI Peak Predictions</span>
-              <span style={{ fontSize: 10, color: 'var(--accent-supply)', fontFamily: 'JetBrains Mono' }}>Next 2h</span>
+              <span style={{ fontSize: 10, color: 'var(--accent-supply)', fontFamily: 'JetBrains Mono' }}>Next hour</span>
             </div>
-            <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 12, padding: '6px 10px', background: 'rgba(0,229,255,0.05)', borderRadius: 6, border: '1px solid rgba(0,229,255,0.1)' }}>
-              Powered by GridWise ML — Linear Regression model, RMSE 5.44%
+
+            {/* Model info badge */}
+            <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 12, padding: '6px 10px', background: mlOffline ? 'rgba(245,158,11,0.08)' : 'rgba(0,229,255,0.05)', borderRadius: 6, border: `1px solid ${mlOffline ? 'rgba(245,158,11,0.2)' : 'rgba(0,229,255,0.1)'}` }}>
+              {mlOffline
+                ? '⚠️ ML backend offline — showing last known predictions'
+                : `Powered by GridWise ML — Linear Regression · RMSE ${mlModelInfo?.rmse ? (mlModelInfo.rmse * 100).toFixed(2) : '5.44'}%`
+              }
             </div>
-            {(predictions.length > 0 ? predictions : [
-              { zoneId: 'DL-01', zone: 'Delhi Central', risk: 'high', confidence: 87, peakAt: '19:30', predictedLoad: 91 },
-              { zoneId: 'MH-01', zone: 'Mumbai Metro', risk: 'medium', confidence: 71, peakAt: '20:00', predictedLoad: 78 },
-              { zoneId: 'UP-01', zone: 'Lucknow Region', risk: 'low', confidence: 61, peakAt: '21:00', predictedLoad: 63 },
-            ]).map((p) => (
-              <div key={p.zoneId} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: '1px solid var(--border-subtle)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
-                  <div>
-                    <span style={{ fontSize: 13, fontWeight: 700 }}>{p.zone}</span>
-                    <span style={{ fontSize: 10, color: 'var(--text-muted)', marginLeft: 6, fontFamily: 'JetBrains Mono' }}>{p.zoneId}</span>
+
+            {/* Loading skeleton */}
+            {mlLoading && predictions.length === 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '8px 0' }}>
+                {[1, 2, 3].map((i) => (
+                  <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ height: 14, width: '60%', background: 'rgba(255,255,255,0.04)', borderRadius: 4, animation: 'pulse 1.5s infinite' }} />
+                    <div style={{ height: 10, width: '80%', background: 'rgba(255,255,255,0.03)', borderRadius: 4, animation: 'pulse 1.5s infinite' }} />
+                    <div style={{ height: 4, width: '100%', background: 'rgba(255,255,255,0.03)', borderRadius: 2, animation: 'pulse 1.5s infinite' }} />
                   </div>
-                  <span
-                    className={`status-pill ${p.risk === 'high' ? 'critical' : p.risk === 'medium' ? 'overload' : 'normal'}`}
-                    style={{ fontSize: 9 }}
-                  >
-                    {p.risk} risk
-                  </span>
-                </div>
-                <div style={{ display: 'flex', gap: 12, marginBottom: 6 }}>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                    Peak at <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{p.peakAt}</span>
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                    Confidence <span style={{ color: 'var(--accent-supply)', fontWeight: 700, fontFamily: 'JetBrains Mono' }}>{p.confidence}%</span>
-                  </div>
-                </div>
-                {p.predictedLoad && (
-                  <div style={{ marginBottom: 4 }}>
-                    <div style={{ height: 4, background: 'var(--border-subtle)', borderRadius: 2, overflow: 'hidden' }}>
-                      <div style={{ width: `${p.predictedLoad}%`, height: '100%', borderRadius: 2, background: p.risk === 'high' ? '#ef4444' : p.risk === 'medium' ? '#f59e0b' : '#10b981', transition: 'width 0.6s' }} />
-                    </div>
-                    <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>Predicted: {p.predictedLoad}% load</div>
-                  </div>
-                )}
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic' }}>→ {PREDICTION_ACTIONS[p.risk]}</div>
+                ))}
               </div>
-            ))}
+            ) : (
+              // Show top 5 predictions (sorted by risk — critical first)
+              predictions.slice(0, 5).map((p) => (
+                <div key={p.zoneId} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: '1px solid var(--border-subtle)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                    <div>
+                      <span style={{ fontSize: 13, fontWeight: 700 }}>{p.zone}</span>
+                      <span style={{ fontSize: 10, color: 'var(--text-muted)', marginLeft: 6, fontFamily: 'JetBrains Mono' }}>{p.zoneId}</span>
+                    </div>
+                    <span
+                      className={`status-pill ${p.risk === 'critical' ? 'critical' : p.risk === 'warning' ? 'overload' : 'normal'}`}
+                      style={{ fontSize: 9 }}
+                    >
+                      {p.risk} risk
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 12, marginBottom: 6 }}>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                      Predicted at <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{p.peakAt}</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                      Confidence <span style={{ color: 'var(--accent-supply)', fontWeight: 700, fontFamily: 'JetBrains Mono' }}>{p.confidence}%</span>
+                    </div>
+                  </div>
+                  {p.predictedLoad && (
+                    <div style={{ marginBottom: 4 }}>
+                      <div style={{ height: 4, background: 'var(--border-subtle)', borderRadius: 2, overflow: 'hidden' }}>
+                        <div style={{ width: `${Math.min(p.predictedLoad, 100)}%`, height: '100%', borderRadius: 2, background: p.risk === 'critical' ? '#ef4444' : p.risk === 'warning' ? '#f59e0b' : '#10b981', transition: 'width 0.6s' }} />
+                      </div>
+                      <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>Predicted: {p.predictedLoad}% load{p.predictedMW ? ` · ${p.predictedMW} MW` : ''}</div>
+                    </div>
+                  )}
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic' }}>→ {PREDICTION_ACTIONS[p.risk]}</div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
