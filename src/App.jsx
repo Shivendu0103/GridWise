@@ -4,7 +4,6 @@ import { Component } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
 import CitizenApp from './pages/CitizenApp';
-import CoinWallet from './pages/CoinWallet';
 import LoadShift from './pages/LoadShift';
 import MicroGrid from './pages/MicroGrid';
 import Landing from './pages/Landing';
@@ -179,16 +178,6 @@ export default function App() {
               <OperatorRoute>
                 <OperatorLayout>
                   <CitizenApp />
-                </OperatorLayout>
-              </OperatorRoute>
-            }
-          />
-          <Route
-            path="/wallet"
-            element={
-              <OperatorRoute>
-                <OperatorLayout>
-                  <CoinWallet />
                 </OperatorLayout>
               </OperatorRoute>
             }

@@ -12,6 +12,8 @@ import {
   submitCitizenReport,
   recordNudgeCompliance,
   updateUserProfile,
+  subscribeToTransactions,
+  verifyCitizenReport,
 } from '../lib/firebase';
 import zonesData from '../../data/zones.json';
 
@@ -23,6 +25,21 @@ const ISSUE_TYPES = [
   { id: 'transformer', label: 'Transformer Fault',   icon: '⚡' },
   { id: 'lowvoltage',  label: 'Low Voltage',         icon: '📉' },
   { id: 'other',       label: 'Other',               icon: '📝' },
+];
+
+const BADGES = [
+  { id: 'starter', icon: '🌱', threshold: 50,   desc: 'First Steps — Earn 50 coins',      label: 'First Steps' },
+  { id: 'saver',   icon: '💡', threshold: 200,  desc: 'Power Saver — Earn 200 coins',    label: 'Power Saver' },
+  { id: 'hero',    icon: '⚡', threshold: 500,  desc: 'Grid Hero — Earn 500 coins',      label: 'Grid Hero' },
+  { id: 'champ',   icon: '🏆', threshold: 1000, desc: 'Champion — Earn 1,000 coins',     label: 'Champion' },
+  { id: 'legend',  icon: '🌟', threshold: 5000, desc: 'Legend — Earn 5,000 coins',       label: 'Legend' },
+];
+
+const HOW_ITEMS = [
+  { step: 1, icon: '📩', title: 'Receive AI Nudge',  desc: 'GridWise detects peak hours and sends a personalised energy-saving suggestion to your zone.' },
+  { step: 2, icon: '✅', title: 'Accept & Act',       desc: 'Tap Accept to confirm you\'ll follow the nudge. The AI trusts you!' },
+  { step: 3, icon: '🪙', title: 'Earn Energy Coins', desc: 'Coins are instantly credited. Each coin represents ~10 Wh of grid stress you prevented.' },
+  { step: 4, icon: '🏆', title: 'Climb the Board',   desc: 'Top earners per zone get featured and win monthly cashback rewards on electricity bills.' },
 ];
 
 function getGreeting() {
@@ -56,6 +73,7 @@ export default function CitizenDashboard() {
   const [leaderboard, setLeaderboard] = useState([]);
   const [nudgeHistory, setNudgeHistory] = useState([]);
   const [myReports, setMyReports] = useState([]);
+  const [transactions, setTransactions] = useState([]);
   const [coins, setCoins] = useState(userProfile?.energy_coins || 0);
 
   // Report form state
@@ -99,6 +117,12 @@ export default function CitizenDashboard() {
     return subscribeToCitizenReports(user.uid, setMyReports);
   }, [user?.uid, isGuest]);
 
+  // Ledger
+  useEffect(() => {
+    if (!user?.uid || isGuest) return;
+    return subscribeToTransactions(user.uid, setTransactions);
+  }, [user?.uid, isGuest]);
+
   // Geolocation
   const detectLocation = () => {
     if (!navigator.geolocation) return;
@@ -118,9 +142,17 @@ export default function CitizenDashboard() {
     if (!user?.uid || isGuest) return;
     await recordNudgeCompliance(user.uid, nudge, accepted);
     if (accepted && nudge.reward) {
-      const newCoins = coins + nudge.reward;
-      setCoins(newCoins);
-      await updateUserProfile(user.uid, { energy_coins: newCoins });
+      setCoins((c) => c + nudge.reward); // optimistic update
+    }
+  };
+
+  const handleVerifyFix = async (reportId) => {
+    if (!user?.uid) return;
+    try {
+      await verifyCitizenReport(reportId, user.uid, 5);
+      setCoins(c => c + 5);
+    } catch (err) {
+      console.error('Verification failed:', err);
     }
   };
 
@@ -154,6 +186,10 @@ export default function CitizenDashboard() {
 
   const loadPct = zoneData?.currentLoad ? Math.round(zoneData.currentLoad) : null;
   const zoneStatus = zoneData?.status || 'normal';
+
+  const dailyGoal   = 200;
+  const dailyEarned = Math.min(coins % 200, 200);
+  const goalPct     = Math.round((dailyEarned / dailyGoal) * 100);
 
   return (
     <div className="citizen-page">
@@ -204,7 +240,7 @@ export default function CitizenDashboard() {
         </div>
 
         {/* ── Energy Coins ── */}
-        <div className="citizen-coins-card">
+        <div className="citizen-coins-card" style={{ position: 'relative' }}>
           <div className="citizen-coins-icon">🪙</div>
           <div className="citizen-coins-amount">{coins.toLocaleString()}</div>
           <div className="citizen-coins-label">Energy Coins</div>
@@ -215,13 +251,71 @@ export default function CitizenDashboard() {
           )}
         </div>
 
+        {/* ── Daily Goal & Badges (Citizen Ext) ── */}
+        {!isGuest && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 16, marginBottom: 24 }}>
+            <div className="citizen-section" style={{ marginBottom: 0, textAlign: 'center' }}>
+              <div className="citizen-section-title" style={{ fontSize: 13, marginBottom: 12 }}>Daily Goal</div>
+              <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="80" height="80" viewBox="0 0 120 120">
+                  <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="10" />
+                  <circle
+                    cx="60" cy="60" r="50"
+                    fill="none"
+                    stroke="#fbbf24"
+                    strokeWidth="10"
+                    strokeDasharray={`${2 * Math.PI * 50}`}
+                    strokeDashoffset={`${2 * Math.PI * 50 * (1 - goalPct / 100)}`}
+                    strokeLinecap="round"
+                    transform="rotate(-90 60 60)"
+                    style={{ transition: 'stroke-dashoffset 0.8s ease' }}
+                  />
+                </svg>
+                <div style={{ position: 'absolute', textAlign: 'center' }}>
+                  <div style={{ fontSize: 16, fontWeight: 800, fontFamily: 'JetBrains Mono', color: '#fbbf24' }}>
+                    {goalPct}%
+                  </div>
+                </div>
+              </div>
+              <div style={{ fontSize: 10, color: '#64748b', marginTop: 8 }}>
+                {dailyEarned} / {dailyGoal} coins
+              </div>
+            </div>
+
+            <div className="citizen-section" style={{ marginBottom: 0 }}>
+              <div className="citizen-section-title" style={{ fontSize: 13, marginBottom: 12 }}>Achievements</div>
+              <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+                {BADGES.map((b) => {
+                  const earned = coins >= b.threshold;
+                  return (
+                    <div
+                      key={b.id}
+                      title={b.desc}
+                      style={{
+                        padding: '8px', borderRadius: 8, textAlign: 'center', flexShrink: 0, minWidth: 65,
+                        background: earned ? 'rgba(251,191,36,0.1)' : 'rgba(255,255,255,0.02)',
+                        border: `1px solid ${earned ? 'rgba(251,191,36,0.3)' : 'rgba(255,255,255,0.05)'}`,
+                        filter: earned ? 'none' : 'grayscale(1) opacity(0.3)',
+                      }}
+                    >
+                      <div style={{ fontSize: 20 }}>{b.icon}</div>
+                      <div style={{ fontSize: 9, color: earned ? '#fbbf24' : '#64748b', marginTop: 4, fontWeight: 600 }}>
+                        {b.label}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ── Active Nudge ── */}
         <div className="citizen-section">
           <div className="citizen-section-title">⚡ Active Grid Nudge</div>
           <NudgeCard
             userId={isGuest ? null : user?.uid}
-            onCoinsEarned={(amt) => {
-              const nudge = { reward: amt, message: '' };
+            onCoinsEarned={(amt, nudge) => {
               handleNudgeAction(nudge, true);
             }}
           />
@@ -420,10 +514,44 @@ export default function CitizenDashboard() {
                 {myReports.slice(0, 3).map((r) => (
                   <div className="activity-item" key={r.id}>
                     <div className="activity-dot" style={{ background: '#3b82f6' }} />
-                    <div className="activity-text">
-                      {ISSUE_TYPES.find((t) => t.id === r.type)?.icon} {r.type} — {r.description?.slice(0, 60)}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div className="activity-text" style={{ flex: 1, paddingRight: 8 }}>
+                        {ISSUE_TYPES.find((t) => t.id === r.type)?.icon} {r.type} — {r.description?.slice(0, 60)}
+                      </div>
+                      {r.status === 'operator_resolved' && (
+                        <button 
+                          className="btn btn-sm" 
+                          onClick={() => handleVerifyFix(r.id)}
+                          style={{ padding: '2px 6px', fontSize: 10, background: 'rgba(16,185,129,0.2)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', whiteSpace: 'nowrap' }}
+                        >
+                          Verify Fix
+                        </button>
+                      )}
+                      {r.status === 'verified_resolved' && (
+                        <div style={{ fontSize: 10, color: '#10b981', fontWeight: 600 }}>+5 🪙</div>
+                      )}
                     </div>
-                    <div className="activity-time">{timeAgo(r.timestamp)}</div>
+                    <div className="activity-time">
+                      {timeAgo(r.timestamp)}
+                      {r.status === 'in_progress' && <span style={{ color: '#3b82f6', marginLeft: 8 }}>• In Progress</span>}
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+
+            {transactions.length > 0 && (
+              <>
+                <div style={{ fontSize: 11, color: '#475569', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, margin: '12px 0 8px' }}>
+                  Coin Ledger
+                </div>
+                {transactions.slice(0, 3).map((tx) => (
+                  <div className="activity-item" key={tx.id}>
+                    <div className="activity-dot" style={{ background: '#fbbf24' }} />
+                    <div className="activity-text">
+                      {tx.reason} <span style={{ color: '#fbbf24', marginLeft: 6, fontWeight: 700 }}>+{tx.amount} 🪙</span>
+                    </div>
+                    <div className="activity-time">{timeAgo(tx.timestamp)}</div>
                   </div>
                 ))}
               </>

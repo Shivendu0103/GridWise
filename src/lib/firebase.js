@@ -10,6 +10,7 @@ import { getDatabase, ref, onValue, off, push, update, get, set, query, orderByC
 import {
   getAuth, signInAnonymously, onAuthStateChanged,
   createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut,
+  GoogleAuthProvider, signInWithPopup,
 } from 'firebase/auth';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 import zonesJson from '../../data/zones.json';
@@ -64,6 +65,8 @@ export { database, auth, messaging };
 // ─────────────────────────────────────────────────────────
 //  AUTH HELPERS
 // ─────────────────────────────────────────────────────────
+
+export const googleProvider = new GoogleAuthProvider();
 
 /** Sign in anonymously (for citizen reports). Returns the user object. */
 export async function signInAnon() {
@@ -188,24 +191,21 @@ export function subscribeToReports(callback) {
   return () => off(reportsRef, 'value', handler);
 }
 
-export function subscribeToWallet(userId, callback) {
+export function subscribeToTransactions(uid, callback) {
   if (DEMO_MODE) {
-    callback({ coins: 1450, transactions: { 't1': { amount: 50, reason: 'Demo Reward', timestamp: new Date().toISOString() } } });
+    callback([{ id: 't1', amount: 50, reason: 'Demo Reward', timestamp: new Date().toISOString() }]);
     return () => {};
   }
-  const walletRef = ref(database, `/users/${userId}/wallet`);
-  const handler = (snapshot) => callback(snapshot.val() || { coins: 0, transactions: {} });
-  onValue(walletRef, handler);
-  return () => off(walletRef, 'value', handler);
-}
-
-export async function awardCoins(userId, amount, reason) {
-  if (DEMO_MODE) return;
-  const walletRef = ref(database, `/users/${userId}/wallet`);
-  const snap = await new Promise((res) => onValue(walletRef, res, { onlyOnce: true }));
-  const current = snap.val()?.coins || 0;
-  await update(walletRef, { coins: current + amount });
-  await push(ref(database, `/users/${userId}/wallet/transactions`), { amount, reason, timestamp: new Date().toISOString(), type: 'earn' });
+  const txRef = ref(database, `/users/${uid}/wallet/transactions`);
+  const handler = (snapshot) => {
+    const data = snapshot.val() || {};
+    const txs = Object.entries(data)
+      .map(([id, t]) => ({ id, ...t }))
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    callback(txs);
+  };
+  onValue(txRef, handler);
+  return () => off(txRef, 'value', handler);
 }
 
 // ─────────────────────────────────────────────────────────
@@ -253,6 +253,29 @@ export async function signInWithEmail(email, password) {
 export async function logOut() {
   if (DEMO_MODE) return;
   await signOut(auth);
+}
+
+/** Sign in with Google. Creates a profile if none exists. */
+export async function signInWithGoogle(role) {
+  if (DEMO_MODE) {
+    const user = { uid: 'demo-google', email: 'demo@google.com', displayName: 'Demo Google User' };
+    return { user };
+  }
+  const result = await signInWithPopup(auth, googleProvider);
+  const { user } = result;
+  
+  // Create profile if missing
+  const profileSnap = await get(ref(database, `/users/${user.uid}`));
+  if (!profileSnap.exists()) {
+    await writeUserProfile(user.uid, {
+      name: user.displayName || 'Google User',
+      email: user.email,
+      role: role || 'citizen',
+      zone_id: 'DL-01', // default zone
+      energy_coins: 0,
+    });
+  }
+  return result;
 }
 
 // ─────────────────────────────────────────────────────────
@@ -316,6 +339,45 @@ export function subscribeToCitizenReports(uid, callback) {
   return () => off(q, 'value', handler);
 }
 
+export function subscribeToAllCitizenReports(callback) {
+  if (DEMO_MODE) { callback([]); return () => {}; }
+  const reportsRef = ref(database, '/citizen_reports');
+  const handler = (snap) => {
+    const data = snap.val() || {};
+    const reports = Object.entries(data)
+      .map(([id, r]) => ({ id, ...r }))
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    callback(reports);
+  };
+  onValue(reportsRef, handler);
+  return () => off(reportsRef, 'value', handler);
+}
+
+export async function updateCitizenReportStatus(reportId, status) {
+  if (DEMO_MODE) return;
+  await update(ref(database, `/citizen_reports/${reportId}`), { status });
+}
+
+export async function verifyCitizenReport(reportId, uid, reward = 5) {
+  if (DEMO_MODE) return;
+  
+  // 1. Mark report as verified
+  await update(ref(database, `/citizen_reports/${reportId}`), { status: 'verified_resolved' });
+  
+  // 2. Award coins
+  const snap = await get(ref(database, `/users/${uid}/energy_coins`));
+  const current = snap.val() || 0;
+  await update(ref(database, `/users/${uid}`), { energy_coins: current + reward });
+  
+  // 3. Log transaction
+  await push(ref(database, `/users/${uid}/wallet/transactions`), {
+    amount: reward,
+    reason: `Verified report fix`,
+    timestamp: new Date().toISOString(),
+    type: 'earn'
+  });
+}
+
 // ─────────────────────────────────────────────────────────
 //  NUDGES  (/nudges/{zoneId})
 // ─────────────────────────────────────────────────────────
@@ -357,6 +419,14 @@ export async function recordNudgeCompliance(uid, nudge, accepted) {
     const snap = await get(ref(database, `/users/${uid}/energy_coins`));
     const current = snap.val() || 0;
     await update(ref(database, `/users/${uid}`), { energy_coins: current + nudge.reward });
+    
+    // Also push a transaction
+    await push(ref(database, `/users/${uid}/wallet/transactions`), {
+      amount: nudge.reward,
+      reason: `Accepted nudge: ${nudge.message.slice(0, 40)}`,
+      timestamp: new Date().toISOString(),
+      type: 'earn'
+    });
   }
 }
 

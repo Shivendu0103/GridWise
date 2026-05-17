@@ -38,9 +38,10 @@ export function AuthProvider({ children }) {
   };
 
   /** Call this after writing a new profile to RTDB, to refresh context state. */
-  const refreshProfile = async () => {
-    if (!user || user.isAnonymous) return;
-    const profile = await fetchUserProfile(user.uid);
+  const refreshProfile = async (explicitUid = null) => {
+    const targetUid = explicitUid || (user && !user.isAnonymous ? user.uid : null);
+    if (!targetUid) return;
+    const profile = await fetchUserProfile(targetUid);
     setUserProfile(profile);
   };
 

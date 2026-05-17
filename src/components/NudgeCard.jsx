@@ -1,7 +1,6 @@
 // src/components/NudgeCard.jsx
 // AI nudge card — accept/dismiss with countdown timer, coin animation, swipe support
 import { useState, useEffect, useRef } from 'react';
-import { awardCoins } from '../lib/firebase';
 
 const NUDGES = [
   {
@@ -77,13 +76,10 @@ export default function NudgeCard({ userId, onCoinsEarned }) {
     setTimeout(() => setCoins([]), 1500);
   };
 
-  const handleAccept = async () => {
+  const handleAccept = () => {
     spawnCoins(nudge.reward);
-    if (userId) {
-      await awardCoins(userId, nudge.reward, `Accepted nudge: ${nudge.message.slice(0, 40)}`);
-    }
     setAccepted(true);
-    onCoinsEarned?.(nudge.reward);
+    onCoinsEarned?.(nudge.reward, nudge);
     setTimeout(() => {
       setAccepted(false);
       setDragX(0);

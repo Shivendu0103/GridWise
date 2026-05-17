@@ -15,12 +15,6 @@ const NAV_ITEMS = [
     ]
   },
   {
-    section: 'Demand Side',
-    items: [
-      { to: '/wallet',  icon: '🪙', label: 'Energy Coins',    chip: 'demand' },
-    ]
-  },
-  {
     section: 'Data Collection',
     items: [
       { to: '/citizen',   icon: '📍', label: 'Citizen Reports', chip: 'data' },

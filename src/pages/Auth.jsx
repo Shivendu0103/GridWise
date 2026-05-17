@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   signInWithEmail, signUpWithEmail, signInAnon,
-  writeUserProfile,
+  writeUserProfile, signInWithGoogle,
 } from '../lib/firebase';
 import { useAuth } from '../lib/AuthContext';
 import zonesData from '../../data/zones.json';
@@ -67,10 +67,12 @@ export default function Auth() {
           role,
           ...(isCitizen ? { zone_id: form.zone_id, energy_coins: 0 } : {}),
         });
-        await refreshProfile();
+        await refreshProfile(user.uid);
+        if (role === 'operator') navigate('/dashboard', { replace: true });
+        else navigate('/citizen-dashboard', { replace: true });
       } else {
-        await signInWithEmail(form.email, form.password);
-        await refreshProfile();
+        const { user } = await signInWithEmail(form.email, form.password);
+        await refreshProfile(user.uid);
       }
       // Redirect handled by useEffect watching userProfile
     } catch (err) {
@@ -89,6 +91,21 @@ export default function Auth() {
       navigate('/citizen-dashboard', { replace: true });
     } catch (err) {
       setError('Guest login failed. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const { user } = await signInWithGoogle(role);
+      await refreshProfile(user.uid);
+      if (role === 'operator') navigate('/dashboard', { replace: true });
+      else navigate('/citizen-dashboard', { replace: true });
+    } catch (err) {
+      setError(friendlyError(err.code || err.message));
     } finally {
       setBusy(false);
     }
@@ -241,19 +258,27 @@ export default function Auth() {
           </button>
         </form>
 
+        <div className="auth-divider">or</div>
+        <button
+          className="auth-guest-btn"
+          onClick={handleGoogleLogin}
+          disabled={busy}
+          style={{ marginBottom: isCitizen ? 12 : 0 }}
+        >
+          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G" style={{ width: 18, height: 18, marginRight: 8, verticalAlign: 'middle' }} />
+          Sign in with Google
+        </button>
+
         {/* Guest access — citizens only */}
         {isCitizen && (
-          <>
-            <div className="auth-divider">or</div>
-            <button
-              className="auth-guest-btn"
-              onClick={handleGuestLogin}
-              disabled={busy}
-              id="auth-guest-btn"
-            >
-              👤 Try as Guest — no account needed
-            </button>
-          </>
+          <button
+            className="auth-guest-btn"
+            onClick={handleGuestLogin}
+            disabled={busy}
+            id="auth-guest-btn"
+          >
+            👤 Try as Guest — no account needed
+          </button>
         )}
 
         {/* Back to landing */}

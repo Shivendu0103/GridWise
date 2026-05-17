@@ -1,7 +1,7 @@
 // src/pages/CitizenApp.jsx
 // Feature 4 — Crowdsourced outage/overload reports with geolocation, real-time feed
 import { useEffect, useState, useRef } from 'react';
-import { submitReport, subscribeToReports, signInAnon, onAuth } from '../lib/firebase';
+import { subscribeToAllCitizenReports, updateCitizenReportStatus, signInAnon, onAuth } from '../lib/firebase';
 import zonesData from '../../data/zones.json';
 
 const ZONES = zonesData.zones;
@@ -28,10 +28,11 @@ export default function CitizenApp() {
   const [reports, setReports]       = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted]   = useState(false);
-  const [activeTab, setActiveTab]   = useState('report');
+  const [activeTab, setActiveTab]   = useState('feed');
   const [locating, setLocating]     = useState(false);
   const [detectedZone, setDetectedZone] = useState(null);
   const [form, setForm] = useState({ zoneId: '', type: 'outage', description: '', severity: '3' });
+  const [selectedReport, setSelectedReport] = useState(null);
 
   useEffect(() => {
     const unsub = onAuth(async (u) => { if (u) setUser(u); else await signInAnon(); });
@@ -39,7 +40,7 @@ export default function CitizenApp() {
   }, []);
 
   useEffect(() => {
-    const unsub = subscribeToReports(setReports);
+    const unsub = subscribeToAllCitizenReports(setReports);
     return unsub;
   }, []);
 
@@ -86,6 +87,17 @@ export default function CitizenApp() {
     setSubmitting(false);
   };
 
+  const handleStatusUpdate = async (id, status) => {
+    try {
+      await updateCitizenReportStatus(id, status);
+      if (selectedReport && selectedReport.id === id) {
+        setSelectedReport({ ...selectedReport, status });
+      }
+    } catch (err) {
+      console.error('Failed to update report status:', err);
+    }
+  };
+
   const rt = (id) => REPORT_TYPES.find(t => t.id === id);
 
   return (
@@ -114,7 +126,7 @@ export default function CitizenApp() {
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-        {[['report', '📝 Submit Report'], ['feed', `📡 Live Feed (${reports.length})`]].map(([id, label]) => (
+        {[['feed', `📡 Live Feed (${reports.length})`], ['report', '📝 Submit Report']].map(([id, label]) => (
           <button key={id} className={`btn ${activeTab === id ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setActiveTab(id)} id={`tab-${id}`}>
             {label}
           </button>
@@ -295,7 +307,7 @@ export default function CitizenApp() {
                 {reports.map(r => {
                   const type = rt(r.type);
                   return (
-                    <tr key={r.id}>
+                    <tr key={r.id} onClick={() => setSelectedReport(r)} style={{ cursor: 'pointer', transition: 'background 0.2s' }} onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'} onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
                       <td className="mono" style={{ fontSize: 11 }}>
                         {new Date(r.timestamp).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                       </td>
@@ -317,8 +329,26 @@ export default function CitizenApp() {
                       </td>
                       <td style={{ color: 'var(--text-secondary)', fontSize: 12, maxWidth: 200 }}>{r.description}</td>
                       <td>
-                        <span className={`status-pill ${r.status === 'resolved' ? 'normal' : 'low'}`}>
-                          {r.status || 'pending'}
+                        <span className={`status-pill ${
+                          r.status === 'verified_resolved' ? 'normal' : 
+                          r.status === 'operator_resolved' ? 'normal' : // maybe different color
+                          r.status === 'in_progress' ? 'low' : 'critical'
+                        }`} style={{
+                          background: r.status === 'verified_resolved' ? 'rgba(16,185,129,0.1)' :
+                                      r.status === 'operator_resolved' ? 'rgba(168,85,247,0.1)' :
+                                      r.status === 'in_progress' ? 'rgba(59,130,246,0.1)' : 'rgba(245,158,11,0.1)',
+                          color: r.status === 'verified_resolved' ? '#10b981' :
+                                 r.status === 'operator_resolved' ? '#a855f7' :
+                                 r.status === 'in_progress' ? '#3b82f6' : '#f59e0b',
+                          border: `1px solid ${
+                            r.status === 'verified_resolved' ? 'rgba(16,185,129,0.2)' :
+                            r.status === 'operator_resolved' ? 'rgba(168,85,247,0.2)' :
+                            r.status === 'in_progress' ? 'rgba(59,130,246,0.2)' : 'rgba(245,158,11,0.2)'
+                          }`
+                        }}>
+                          {r.status === 'verified_resolved' ? 'Verified Resolved' :
+                           r.status === 'operator_resolved' ? 'Operator Resolved' :
+                           r.status === 'in_progress' ? 'In Progress' : 'Pending'}
                         </span>
                       </td>
                     </tr>
@@ -327,6 +357,71 @@ export default function CitizenApp() {
               </tbody>
             </table>
           )}
+        </div>
+      )}
+
+      {/* Modal */}
+      {selectedReport && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)',
+          zIndex: 100, display: 'grid', placeItems: 'center', padding: 20
+        }} onClick={() => setSelectedReport(null)}>
+          <div className="card" style={{ width: '100%', maxWidth: 500, cursor: 'default' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h2 className="card-title" style={{ margin: 0 }}>Report Details</h2>
+              <button onClick={() => setSelectedReport(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 20 }}>✕</button>
+            </div>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Zone</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{selectedReport.zoneId} — {selectedReport.zoneName}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Time</div>
+                <div style={{ fontSize: 14, color: 'var(--text-primary)' }}>{new Date(selectedReport.timestamp).toLocaleString()}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Issue Type</div>
+                <div style={{ fontSize: 14, color: rt(selectedReport.type)?.color }}>{rt(selectedReport.type)?.icon} {rt(selectedReport.type)?.label || selectedReport.type}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Severity</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--status-critical)' }}>{selectedReport.severity} / 5</div>
+              </div>
+            </div>
+
+            <div style={{ background: 'rgba(255,255,255,0.02)', padding: 16, borderRadius: 8, marginBottom: 24, border: '1px solid var(--border-subtle)' }}>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Description</div>
+              <div style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                {selectedReport.description}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', borderTop: '1px solid var(--border-subtle)', paddingTop: 20 }}>
+              {(!selectedReport.status || selectedReport.status === 'pending') && (
+                <button className="btn btn-secondary" onClick={() => handleStatusUpdate(selectedReport.id, 'in_progress')}>
+                  Mark In Progress
+                </button>
+              )}
+              {(!selectedReport.status || selectedReport.status === 'pending' || selectedReport.status === 'in_progress') && (
+                <button className="btn btn-primary" onClick={() => handleStatusUpdate(selectedReport.id, 'operator_resolved')}>
+                  Mark as Resolved
+                </button>
+              )}
+              {selectedReport.status === 'operator_resolved' && (
+                <div style={{ fontSize: 13, color: '#a855f7', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span>⏳</span> Waiting for citizen to verify fix...
+                </div>
+              )}
+              {selectedReport.status === 'verified_resolved' && (
+                <div style={{ fontSize: 13, color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span>✅</span> Citizen verified issue resolved
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
