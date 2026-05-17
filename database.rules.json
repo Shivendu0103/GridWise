@@ -1,0 +1,38 @@
+{
+  "rules": {
+    "zones": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+    "alerts": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+    "predictions": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+    "nudges": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+    "microgrid": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+    "citizen_reports": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+    "shift_requests": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "users": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": "$uid === auth.uid"
+      }
+    }
+  }
+}
