@@ -3,12 +3,12 @@
 // Real-time zone monitoring, overload alerts, summary stats
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { subscribeToZones, subscribeToPredictions } from '../lib/firebase';
+import { subscribeToZones, subscribeToPredictions, subscribeToAllCitizenReports } from '../lib/firebase';
 import { fetchPredictions } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
 import AlertBanner from '../components/AlertBanner';
 import ZoneCard from '../components/ZoneCard';
-import ZoneMap from '../components/ZoneMap';
+import GridMap from '../components/GridMap';
 import {
   LineChart, Line, ResponsiveContainer, Tooltip,
   AreaChart, Area, XAxis, YAxis, CartesianGrid, ReferenceLine
@@ -46,6 +46,7 @@ export default function Dashboard() {
   const [selectedZone, setSelectedZone] = useState(null);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [reports, setReports] = useState([]);
   const [lastUpdate, setLastUpdate] = useState(null);
   const [chartData] = useState(gen24hCurve);
   const [predictions, setPredictions] = useState([]);
@@ -60,11 +61,17 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    const unsub = subscribeToZones((data) => {
+    const unsubZones = subscribeToZones((data) => {
       setZones(data);
       setLastUpdate(new Date());
     });
-    return unsub;
+    const unsubReports = subscribeToAllCitizenReports((data) => {
+      setReports(data);
+    });
+    return () => {
+      unsubZones();
+      unsubReports();
+    };
   }, []);
 
   // ── ML Predictions: fetch from FastAPI backend, fallback to Firebase ──
@@ -223,12 +230,12 @@ export default function Dashboard() {
       {/* Two-column: Map + Danger Zones / AI Predictions */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20, marginBottom: 20 }}>
         {/* Map */}
-        <div className="card">
+        <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
           <div className="card-header">
-            <span className="card-title">⚡ Live Zone Heatmap</span>
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Click a zone for details</span>
+            <span className="card-title">⚡ Live Zone Heatmap & Reports</span>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Interactive View</span>
           </div>
-          <ZoneMap zones={zones} selectedZoneId={selectedZone?.zoneId} onZoneClick={setSelectedZone} />
+          <GridMap zones={zoneList} reports={reports} predictions={predictions} />
         </div>
 
         {/* Right column */}

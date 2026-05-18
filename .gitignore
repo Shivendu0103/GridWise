@@ -28,3 +28,18 @@ dist-ssr
 .env.local
 .env.*.local
 data/serviceAccountKey.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Firebase hosting cache
+.firebase/
+
+# Agent skills lock
+skills-lock.json
+
+# AI agent workspace (skills, references — not needed in repo)
+.agents/

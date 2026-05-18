@@ -10,6 +10,7 @@ import Landing from './pages/Landing';
 import Auth from './pages/Auth';
 import CitizenDashboard from './pages/CitizenDashboard';
 import { ThemeProvider } from './components/ThemeContext';
+import ThemeToggle from './components/ThemeToggle';
 import { useAuth } from './lib/AuthContext';
 
 // ─────────────────────────────────────────────────────────
@@ -129,6 +130,7 @@ function FullscreenLayout({ children }) {
 export default function App() {
   return (
     <ThemeProvider>
+      <ThemeToggle />
       <BrowserRouter>
         <Routes>
           {/* ── Public ── */}

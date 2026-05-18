@@ -1,5 +1,5 @@
 // src/pages/CitizenDashboard.jsx
-// Consumer-facing citizen dashboard — coins, nudges, zone status, report form, activity, leaderboard
+// Consumer-facing citizen dashboard — rewritten to match Operator Dashboard layout
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext';
@@ -35,13 +35,6 @@ const BADGES = [
   { id: 'legend',  icon: '🌟', threshold: 5000, desc: 'Legend — Earn 5,000 coins',       label: 'Legend' },
 ];
 
-const HOW_ITEMS = [
-  { step: 1, icon: '📩', title: 'Receive AI Nudge',  desc: 'GridWise detects peak hours and sends a personalised energy-saving suggestion to your zone.' },
-  { step: 2, icon: '✅', title: 'Accept & Act',       desc: 'Tap Accept to confirm you\'ll follow the nudge. The AI trusts you!' },
-  { step: 3, icon: '🪙', title: 'Earn Energy Coins', desc: 'Coins are instantly credited. Each coin represents ~10 Wh of grid stress you prevented.' },
-  { step: 4, icon: '🏆', title: 'Climb the Board',   desc: 'Top earners per zone get featured and win monthly cashback rewards on electricity bills.' },
-];
-
 function getGreeting() {
   const h = new Date().getHours();
   if (h < 12) return 'Good morning';
@@ -51,8 +44,8 @@ function getGreeting() {
 }
 
 function statusColor(status) {
-  const m = { normal: '#10b981', low: '#3b82f6', surplus: '#6366f1', overload: '#f59e0b', critical: '#ef4444' };
-  return m[status] || '#10b981';
+  const m = { normal: 'var(--status-normal)', low: 'var(--status-low)', surplus: 'var(--status-surplus)', overload: 'var(--status-overload)', critical: 'var(--status-critical)' };
+  return m[status] || 'var(--status-normal)';
 }
 
 function timeAgo(ts) {
@@ -84,9 +77,28 @@ export default function CitizenDashboard() {
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [reportSuccess, setReportSuccess] = useState(false);
 
-  const zoneId = userProfile?.zone_id;
-  const zoneName = ZONES.find((z) => z.zoneId === zoneId)?.name || zoneId || 'Unknown Zone';
+  const [localZoneId, setLocalZoneId] = useState(userProfile?.zone_id || 'DL-01');
+  const [isChangingZone, setIsChangingZone] = useState(false);
+
   const isGuest = userProfile?.isGuest;
+  const zoneId = isGuest ? localZoneId : (userProfile?.zone_id || 'DL-01');
+  const zoneName = ZONES.find((z) => z.zoneId === zoneId)?.name || zoneId || 'Unknown Zone';
+
+  const handleZoneChange = async (e) => {
+    const newZoneId = e.target.value;
+    if (isGuest) {
+      setLocalZoneId(newZoneId);
+    } else {
+      setIsChangingZone(true);
+      try {
+        await updateUserProfile(user.uid, { zone_id: newZoneId });
+      } catch (err) {
+        console.error('Failed to change zone:', err);
+      } finally {
+        setIsChangingZone(false);
+      }
+    }
+  };
 
   // Sync coins from userProfile
   useEffect(() => {
@@ -192,14 +204,14 @@ export default function CitizenDashboard() {
   const goalPct     = Math.round((dailyEarned / dailyGoal) * 100);
 
   return (
-    <div className="citizen-page">
-      {/* Top Navbar */}
-      <nav className="citizen-navbar">
-        <div className="citizen-nav-logo">
-          <span>⚡</span>
-          GridWise
-        </div>
-        <div className="citizen-nav-actions">
+    <div>
+      {/* ── Top Navbar (Professional Operator Style) ── */}
+      <div className="operator-topbar">
+        <div className="operator-topbar-left">
+          <div className="operator-mode-badge" style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.2)' }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#fbbf24', display: 'inline-block', animation: 'pulse 2s infinite' }} />
+            Citizen Portal
+          </div>
           {isGuest && (
             <button
               className="btn btn-sm"
@@ -209,82 +221,100 @@ export default function CitizenDashboard() {
               Create Account
             </button>
           )}
+        </div>
+        <div style={{ display: 'flex', gap: '10px' }}>
           <button
             className="btn btn-sm btn-secondary"
             onClick={handleLogout}
             style={{ borderRadius: 999 }}
-            id="citizen-logout-btn"
           >
             Sign Out
           </button>
         </div>
-      </nav>
+      </div>
 
-      <div className="citizen-content">
-        {/* ── Greeting ── */}
-        <div className="citizen-greeting">
-          <div className="citizen-greeting-name">
-            {getGreeting()}{userProfile?.name && !isGuest ? `, ${userProfile.name.split(' ')[0]}` : ''}! 👋
+      <div className="page-container">
+        {/* ── Header ── */}
+        <div className="page-header" style={{ alignItems: 'center' }}>
+          <div>
+            <h1 className="page-title">
+              {getGreeting()}{userProfile?.name && !isGuest ? `, ${userProfile.name.split(' ')[0]}` : ''}! 👋
+            </h1>
+            <p className="page-subtitle">Manage your energy usage and report issues to help balance the grid.</p>
           </div>
-          <div className="citizen-greeting-sub">
-            <span>{zoneName}</span>
+          <div className="header-actions">
+            <select
+              value={zoneId}
+              onChange={handleZoneChange}
+              disabled={isChangingZone}
+              className="form-control"
+              style={{
+                background: 'var(--bg-card)',
+                color: 'var(--text-primary)',
+                borderColor: 'var(--border-subtle)',
+                width: 'auto',
+                minWidth: '200px',
+                fontWeight: '600'
+              }}
+            >
+              {ZONES.map(z => (
+                <option key={z.zoneId} value={z.zoneId} style={{ background: 'var(--bg-card)' }}>
+                  {z.name}
+                </option>
+              ))}
+            </select>
             {zoneData && (
-              <span
-                className={`status-pill ${zoneStatus}`}
-                style={{ fontSize: 11 }}
-              >
+              <span className={`status-pill ${zoneStatus}`}>
                 {zoneStatus}
               </span>
             )}
           </div>
         </div>
 
-        {/* ── Energy Coins ── */}
-        <div className="citizen-coins-card" style={{ position: 'relative' }}>
-          <div className="citizen-coins-icon">🪙</div>
-          <div className="citizen-coins-amount">{coins.toLocaleString()}</div>
-          <div className="citizen-coins-label">Energy Coins</div>
-          {isGuest && (
-            <div style={{ fontSize: 12, color: 'rgba(251,191,36,0.5)', marginTop: 8 }}>
-              Create an account to save your coins
-            </div>
-          )}
-        </div>
+        {/* ── Stats Grid (Top-line Metrics) ── */}
+        <div className="stats-grid">
+          {/* Energy Coins Card */}
+          <div className="stat-card" style={{ '--accent-color': '#fbbf24' }}>
+            <div className="stat-icon">🪙</div>
+            <div className="stat-value" style={{ color: '#fbbf24' }}>{coins.toLocaleString()}</div>
+            <div className="stat-label">Energy Coins Balance</div>
+            {isGuest && <div className="stat-delta" style={{ color: 'var(--text-muted)' }}>Create account to save</div>}
+          </div>
 
-        {/* ── Daily Goal & Badges (Citizen Ext) ── */}
-        {!isGuest && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 16, marginBottom: 24 }}>
-            <div className="citizen-section" style={{ marginBottom: 0, textAlign: 'center' }}>
-              <div className="citizen-section-title" style={{ fontSize: 13, marginBottom: 12 }}>Daily Goal</div>
-              <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg width="80" height="80" viewBox="0 0 120 120">
-                  <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="10" />
-                  <circle
-                    cx="60" cy="60" r="50"
-                    fill="none"
-                    stroke="#fbbf24"
-                    strokeWidth="10"
-                    strokeDasharray={`${2 * Math.PI * 50}`}
-                    strokeDashoffset={`${2 * Math.PI * 50 * (1 - goalPct / 100)}`}
-                    strokeLinecap="round"
-                    transform="rotate(-90 60 60)"
-                    style={{ transition: 'stroke-dashoffset 0.8s ease' }}
-                  />
-                </svg>
-                <div style={{ position: 'absolute', textAlign: 'center' }}>
-                  <div style={{ fontSize: 16, fontWeight: 800, fontFamily: 'JetBrains Mono', color: '#fbbf24' }}>
-                    {goalPct}%
-                  </div>
+          {/* Daily Goal Card */}
+          <div className="stat-card" style={{ '--accent-color': '#10b981', display: 'flex', gap: 16, alignItems: 'center' }}>
+            <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="60" height="60" viewBox="0 0 120 120">
+                <circle cx="60" cy="60" r="50" fill="none" stroke="var(--border-subtle)" strokeWidth="10" />
+                <circle
+                  cx="60" cy="60" r="50"
+                  fill="none"
+                  stroke="#fbbf24"
+                  strokeWidth="10"
+                  strokeDasharray={`${2 * Math.PI * 50}`}
+                  strokeDashoffset={`${2 * Math.PI * 50 * (1 - goalPct / 100)}`}
+                  strokeLinecap="round"
+                  transform="rotate(-90 60 60)"
+                  style={{ transition: 'stroke-dashoffset 0.8s ease' }}
+                />
+              </svg>
+              <div style={{ position: 'absolute', textAlign: 'center' }}>
+                <div style={{ fontSize: 14, fontWeight: 800, fontFamily: 'JetBrains Mono', color: '#fbbf24' }}>
+                  {goalPct}%
                 </div>
               </div>
-              <div style={{ fontSize: 10, color: '#64748b', marginTop: 8 }}>
-                {dailyEarned} / {dailyGoal} coins
-              </div>
             </div>
+            <div>
+              <div className="stat-value" style={{ fontSize: 20 }}>Daily Goal</div>
+              <div className="stat-label">{dailyEarned} / {dailyGoal} coins</div>
+            </div>
+          </div>
 
-            <div className="citizen-section" style={{ marginBottom: 0 }}>
-              <div className="citizen-section-title" style={{ fontSize: 13, marginBottom: 12 }}>Achievements</div>
-              <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+          {/* Badges / Achievements */}
+          {!isGuest && (
+            <div className="stat-card" style={{ '--accent-color': '#6366f1', gridColumn: 'span 2' }}>
+              <div className="stat-label" style={{ marginBottom: 8, fontSize: 13, fontWeight: 600 }}>Achievements</div>
+              <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 4 }}>
                 {BADGES.map((b) => {
                   const earned = coins >= b.threshold;
                   return (
@@ -292,14 +322,14 @@ export default function CitizenDashboard() {
                       key={b.id}
                       title={b.desc}
                       style={{
-                        padding: '8px', borderRadius: 8, textAlign: 'center', flexShrink: 0, minWidth: 65,
-                        background: earned ? 'rgba(251,191,36,0.1)' : 'rgba(255,255,255,0.02)',
-                        border: `1px solid ${earned ? 'rgba(251,191,36,0.3)' : 'rgba(255,255,255,0.05)'}`,
-                        filter: earned ? 'none' : 'grayscale(1) opacity(0.3)',
+                        padding: '8px 12px', borderRadius: 'var(--radius-sm)', textAlign: 'center', flexShrink: 0,
+                        background: earned ? 'var(--bg-glass)' : 'var(--bg-base)',
+                        border: `1px solid ${earned ? 'var(--accent-demand)' : 'var(--border-subtle)'}`,
+                        filter: earned ? 'none' : 'grayscale(1) opacity(0.5)',
                       }}
                     >
                       <div style={{ fontSize: 20 }}>{b.icon}</div>
-                      <div style={{ fontSize: 9, color: earned ? '#fbbf24' : '#64748b', marginTop: 4, fontWeight: 600 }}>
+                      <div style={{ fontSize: 10, color: earned ? '#fbbf24' : 'var(--text-muted)', marginTop: 4, fontWeight: 600 }}>
                         {b.label}
                       </div>
                     </div>
@@ -307,289 +337,262 @@ export default function CitizenDashboard() {
                 })}
               </div>
             </div>
-          </div>
-        )}
-
-        {/* ── Active Nudge ── */}
-        <div className="citizen-section">
-          <div className="citizen-section-title">⚡ Active Grid Nudge</div>
-          <NudgeCard
-            userId={isGuest ? null : user?.uid}
-            onCoinsEarned={(amt, nudge) => {
-              handleNudgeAction(nudge, true);
-            }}
-          />
-        </div>
-
-        {/* ── Zone Status ── */}
-        {zoneData && (
-          <div className="citizen-section">
-            <div className="citizen-section-title">🗺️ My Zone Status</div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontSize: 13, color: '#94a3b8' }}>{zoneName}</div>
-                <div style={{ fontFamily: 'JetBrains Mono', fontWeight: 800, fontSize: 28, color: statusColor(zoneStatus) }}>
-                  {loadPct}%
-                </div>
-              </div>
-              <span className={`status-pill ${zoneStatus}`}>{zoneStatus}</span>
-            </div>
-            <div className="zone-load-bar">
-              <div
-                className="zone-load-fill"
-                style={{
-                  width: `${loadPct || 0}%`,
-                  background: loadPct > 85
-                    ? 'linear-gradient(90deg, #dc2626, #ef4444)'
-                    : loadPct > 70
-                    ? 'linear-gradient(90deg, #d97706, #f59e0b)'
-                    : 'linear-gradient(90deg, #059669, #10b981)',
-                }}
-              />
-            </div>
-            <div className="ai-prediction-tag">
-              🤖 AI predicts peak load at 8:00 PM tonight — consider shifting heavy usage to after 10 PM.
-            </div>
-          </div>
-        )}
-
-        {/* ── Report an Issue ── */}
-        <div className="citizen-section">
-          <div className="citizen-section-title">📍 Report an Issue</div>
-
-          {reportSuccess ? (
-            <div style={{ textAlign: 'center', padding: '24px 0' }}>
-              <div style={{ fontSize: 48, marginBottom: 10 }}>✅</div>
-              <div style={{ fontWeight: 700, color: '#10b981', fontSize: 16 }}>Report Submitted!</div>
-              <div style={{ fontSize: 13, color: '#64748b', marginTop: 6 }}>
-                You may earn <strong style={{ color: '#fbbf24' }}>5 Energy Coins</strong> if your report is verified.
-              </div>
-            </div>
-          ) : (
-            <form onSubmit={handleReportSubmit} id="citizen-issue-form">
-              {/* Issue type selector */}
-              <div className="form-group">
-                <label className="form-label">Issue Type</label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-                  {ISSUE_TYPES.map((t) => (
-                    <label
-                      key={t.id}
-                      style={{
-                        padding: '10px 8px',
-                        borderRadius: 10,
-                        border: `1px solid ${reportForm.type === t.id ? 'rgba(251,191,36,0.5)' : 'rgba(255,255,255,0.07)'}`,
-                        background: reportForm.type === t.id ? 'rgba(251,191,36,0.08)' : 'rgba(255,255,255,0.02)',
-                        cursor: 'pointer',
-                        textAlign: 'center',
-                        fontSize: 12,
-                        color: reportForm.type === t.id ? '#fbbf24' : '#64748b',
-                        transition: 'all 0.15s',
-                      }}
-                    >
-                      <input
-                        type="radio"
-                        name="issue-type"
-                        value={t.id}
-                        checked={reportForm.type === t.id}
-                        onChange={() => setReportForm((f) => ({ ...f, type: t.id }))}
-                        style={{ display: 'none' }}
-                      />
-                      <div style={{ fontSize: 18, marginBottom: 4 }}>{t.icon}</div>
-                      {t.label}
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Description */}
-              <div className="form-group">
-                <label className="form-label">Description</label>
-                <textarea
-                  className="form-control"
-                  placeholder="Describe the issue — duration, affected area, visible signs…"
-                  value={reportForm.description}
-                  onChange={(e) => setReportForm((f) => ({ ...f, description: e.target.value }))}
-                  required
-                  id="citizen-issue-desc"
-                  style={{ minHeight: 80 }}
-                />
-              </div>
-
-              {/* Severity */}
-              <div className="form-group">
-                <label className="form-label">Severity</label>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {[1, 2, 3, 4, 5].map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => setReportForm((f) => ({ ...f, severity: String(s) }))}
-                      style={{
-                        flex: 1, height: 36, borderRadius: 8, border: 'none', cursor: 'pointer',
-                        background: reportForm.severity === String(s)
-                          ? s <= 2 ? 'rgba(59,130,246,0.25)' : s === 3 ? 'rgba(245,158,11,0.2)' : 'rgba(239,68,68,0.25)'
-                          : 'rgba(255,255,255,0.04)',
-                        color: reportForm.severity === String(s)
-                          ? s <= 2 ? '#3b82f6' : s === 3 ? '#f59e0b' : '#ef4444'
-                          : '#475569',
-                        fontWeight: 700, fontSize: 15, transition: 'all 0.15s',
-                      }}
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#475569', marginTop: 4 }}>
-                  <span>Minor</span><span>Critical</span>
-                </div>
-              </div>
-
-              {/* Geolocation */}
-              <div style={{ marginBottom: 16 }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  onClick={detectLocation}
-                  disabled={locating}
-                  style={{ borderRadius: 999 }}
-                >
-                  {locating ? '⏳ Locating…' : '📍 Auto-detect location'}
-                </button>
-                {reportForm.lat && (
-                  <span style={{ fontSize: 11, color: '#10b981', marginLeft: 10 }}>
-                    ✓ Location captured
-                  </span>
-                )}
-              </div>
-
-              <button
-                type="submit"
-                className="auth-submit-btn"
-                disabled={reportSubmitting || !reportForm.description.trim()}
-                id="citizen-report-submit"
-                style={{
-                  background: 'linear-gradient(135deg, rgba(251,191,36,0.9), rgba(249,115,22,0.8))',
-                  color: '#0a0e1a',
-                }}
-              >
-                {reportSubmitting ? '⏳ Submitting…' : '📍 Submit Report'}
-              </button>
-            </form>
           )}
         </div>
 
-        {/* ── My Activity ── */}
-        {!isGuest && (nudgeHistory.length > 0 || myReports.length > 0) && (
-          <div className="citizen-section">
-            <div className="citizen-section-title">📋 My Activity</div>
-
-            {nudgeHistory.length > 0 && (
-              <>
-                <div style={{ fontSize: 11, color: '#475569', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
-                  Recent Nudges
-                </div>
-                {nudgeHistory.map((n) => (
-                  <div className="activity-item" key={n.id}>
-                    <div
-                      className="activity-dot"
-                      style={{ background: n.accepted ? '#10b981' : '#ef4444' }}
-                    />
-                    <div className="activity-text">
-                      {n.accepted ? `✓ Accepted: ${n.message}` : `✕ Dismissed: ${n.message}`}
-                      {n.accepted && n.reward > 0 && (
-                        <span style={{ color: '#fbbf24', marginLeft: 6 }}>+{n.reward} 🪙</span>
-                      )}
-                    </div>
-                    <div className="activity-time">{timeAgo(n.timestamp)}</div>
-                  </div>
-                ))}
-              </>
-            )}
-
-            {myReports.length > 0 && (
-              <>
-                <div style={{ fontSize: 11, color: '#475569', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, margin: '12px 0 8px' }}>
-                  My Reports
-                </div>
-                {myReports.slice(0, 3).map((r) => (
-                  <div className="activity-item" key={r.id}>
-                    <div className="activity-dot" style={{ background: '#3b82f6' }} />
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div className="activity-text" style={{ flex: 1, paddingRight: 8 }}>
-                        {ISSUE_TYPES.find((t) => t.id === r.type)?.icon} {r.type} — {r.description?.slice(0, 60)}
-                      </div>
-                      {r.status === 'operator_resolved' && (
-                        <button 
-                          className="btn btn-sm" 
-                          onClick={() => handleVerifyFix(r.id)}
-                          style={{ padding: '2px 6px', fontSize: 10, background: 'rgba(16,185,129,0.2)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', whiteSpace: 'nowrap' }}
-                        >
-                          Verify Fix
-                        </button>
-                      )}
-                      {r.status === 'verified_resolved' && (
-                        <div style={{ fontSize: 10, color: '#10b981', fontWeight: 600 }}>+5 🪙</div>
-                      )}
-                    </div>
-                    <div className="activity-time">
-                      {timeAgo(r.timestamp)}
-                      {r.status === 'in_progress' && <span style={{ color: '#3b82f6', marginLeft: 8 }}>• In Progress</span>}
-                    </div>
-                  </div>
-                ))}
-              </>
-            )}
-
-            {transactions.length > 0 && (
-              <>
-                <div style={{ fontSize: 11, color: '#475569', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, margin: '12px 0 8px' }}>
-                  Coin Ledger
-                </div>
-                {transactions.slice(0, 3).map((tx) => (
-                  <div className="activity-item" key={tx.id}>
-                    <div className="activity-dot" style={{ background: '#fbbf24' }} />
-                    <div className="activity-text">
-                      {tx.reason} <span style={{ color: '#fbbf24', marginLeft: 6, fontWeight: 700 }}>+{tx.amount} 🪙</span>
-                    </div>
-                    <div className="activity-time">{timeAgo(tx.timestamp)}</div>
-                  </div>
-                ))}
-              </>
-            )}
-          </div>
-        )}
-
-        {/* ── Leaderboard ── */}
-        {leaderboard.length > 0 && (
-          <div className="citizen-section">
-            <div className="citizen-section-title">🏆 Zone Leaderboard</div>
-            <div style={{ fontSize: 12, color: '#475569', marginBottom: 12 }}>
-              Top Energy Coin earners in {zoneName}
+        {/* ── Main Content Area ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 340px', gap: 24, marginBottom: 20 }}>
+          
+          {/* Left Column (Zone Status, Nudges, Form) */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            {/* Active Nudge */}
+            <div className="card">
+              <div className="card-header">
+                <span className="card-title">⚡ Active Grid Nudge</span>
+              </div>
+              <NudgeCard
+                userId={isGuest ? null : user?.uid}
+                onCoinsEarned={(amt, nudge) => {
+                  handleNudgeAction(nudge, true);
+                }}
+              />
             </div>
-            {leaderboard.map((u, i) => (
-              <div
-                className="leaderboard-item"
-                key={u.uid}
-                style={
-                  u.uid === user?.uid
-                    ? { background: 'rgba(251,191,36,0.06)', borderRadius: 8, padding: '10px 8px', margin: '0 -8px' }
-                    : {}
-                }
-              >
-                <div className={`leaderboard-num ${i < 3 ? 'top3' : ''}`}>
-                  {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`}
+
+            {/* Zone Status */}
+            {zoneData && (
+              <div className="card">
+                <div className="card-header">
+                  <span className="card-title">🗺️ My Zone Status</span>
                 </div>
-                <div className="leaderboard-user">
-                  {u.name || 'Anonymous'}
-                  {u.uid === user?.uid && (
-                    <span style={{ fontSize: 10, color: '#fbbf24', marginLeft: 8 }}>You</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{zoneName} Load Level</div>
+                    <div style={{ fontFamily: 'JetBrains Mono', fontWeight: 800, fontSize: 32, color: statusColor(zoneStatus) }}>
+                      {loadPct}%
+                    </div>
+                  </div>
+                  <span className={`status-pill ${zoneStatus}`} style={{ fontSize: 14 }}>{zoneStatus}</span>
+                </div>
+                <div className="load-bar-container" style={{ marginBottom: 16 }}>
+                  <div className="load-bar-track">
+                    <div
+                      className={`load-bar-fill ${zoneStatus}`}
+                      style={{ width: `${loadPct || 0}%` }}
+                    />
+                  </div>
+                </div>
+                <div className="alert-banner" style={{ margin: 0, padding: 12, background: 'rgba(59,130,246,0.1)', borderColor: 'rgba(59,130,246,0.2)' }}>
+                  <span className="alert-banner-icon">🤖</span>
+                  <div className="alert-banner-content">
+                    <div className="alert-banner-title" style={{ color: 'var(--text-primary)' }}>AI Prediction</div>
+                    <div className="alert-banner-desc" style={{ color: 'var(--text-secondary)' }}>Peak load expected at 8:00 PM tonight. Consider shifting heavy appliance usage to off-peak hours (after 10 PM) to earn extra coins.</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Report Form */}
+            <div className="card">
+              <div className="card-header">
+                <span className="card-title">📍 Report a Grid Issue</span>
+              </div>
+              {reportSuccess ? (
+                <div style={{ textAlign: 'center', padding: '32px 0' }}>
+                  <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
+                  <div style={{ fontWeight: 700, color: 'var(--status-normal)', fontSize: 18 }}>Report Successfully Submitted!</div>
+                  <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginTop: 8 }}>
+                    Thank you! You will earn <strong style={{ color: '#fbbf24' }}>5 Energy Coins</strong> once operators verify your report.
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleReportSubmit}>
+                  <div className="form-group">
+                    <label className="form-label">Issue Type</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10 }}>
+                      {ISSUE_TYPES.map((t) => (
+                        <label
+                          key={t.id}
+                          style={{
+                            padding: '12px 8px',
+                            borderRadius: 'var(--radius-sm)',
+                            border: `1px solid ${reportForm.type === t.id ? 'var(--accent-demand)' : 'var(--border-subtle)'}`,
+                            background: reportForm.type === t.id ? 'rgba(245,158,11,0.08)' : 'var(--bg-base)',
+                            cursor: 'pointer',
+                            textAlign: 'center',
+                            fontSize: 12,
+                            color: reportForm.type === t.id ? 'var(--accent-demand)' : 'var(--text-secondary)',
+                            fontWeight: reportForm.type === t.id ? 600 : 400,
+                            transition: 'all 0.15s',
+                          }}
+                        >
+                          <input
+                            type="radio"
+                            name="issue-type"
+                            value={t.id}
+                            checked={reportForm.type === t.id}
+                            onChange={() => setReportForm((f) => ({ ...f, type: t.id }))}
+                            style={{ display: 'none' }}
+                          />
+                          <div style={{ fontSize: 24, marginBottom: 6 }}>{t.icon}</div>
+                          {t.label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Description & Observations</label>
+                    <textarea
+                      className="form-control"
+                      placeholder="E.g. The power just went out in the entire block. I heard a loud pop near the transformer."
+                      value={reportForm.description}
+                      onChange={(e) => setReportForm((f) => ({ ...f, description: e.target.value }))}
+                      required
+                      style={{ minHeight: 100, resize: 'vertical' }}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Severity Level</label>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => setReportForm((f) => ({ ...f, severity: String(s) }))}
+                          style={{
+                            flex: 1, height: 40, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', cursor: 'pointer',
+                            background: reportForm.severity === String(s)
+                              ? s <= 2 ? 'rgba(59,130,246,0.1)' : s === 3 ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)'
+                              : 'var(--bg-base)',
+                            color: reportForm.severity === String(s)
+                              ? s <= 2 ? 'var(--status-low)' : s === 3 ? 'var(--status-overload)' : 'var(--status-critical)'
+                              : 'var(--text-secondary)',
+                            fontWeight: 700, fontSize: 16, transition: 'all 0.15s',
+                          }}
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
+                      <span>Minor / Annoyance</span><span>Critical / Total Outage</span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 24 }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={detectLocation}
+                      disabled={locating}
+                    >
+                      {locating ? '⏳ Locating…' : '📍 Auto-detect location'}
+                    </button>
+                    {reportForm.lat && (
+                      <span style={{ fontSize: 12, color: 'var(--status-normal)', fontWeight: 600 }}>
+                        ✓ Location captured
+                      </span>
+                    )}
+                    <button
+                      type="submit"
+                      className="btn btn-primary"
+                      disabled={reportSubmitting || !reportForm.description.trim()}
+                      style={{ marginLeft: 'auto' }}
+                    >
+                      {reportSubmitting ? '⏳ Submitting…' : 'Submit Report →'}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+
+          {/* Right Column (Activity, Leaderboard) */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            {/* Leaderboard */}
+            {leaderboard.length > 0 && (
+              <div className="card">
+                <div className="card-header" style={{ marginBottom: 8 }}>
+                  <span className="card-title">🏆 Top Earners in {zoneName}</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  {leaderboard.map((u, i) => (
+                    <div
+                      key={u.uid}
+                      style={{
+                        display: 'flex', alignItems: 'center', padding: '12px 0',
+                        borderBottom: i !== leaderboard.length - 1 ? '1px solid var(--border-subtle)' : 'none',
+                        background: u.uid === user?.uid ? 'rgba(251,191,36,0.05)' : 'transparent',
+                        borderRadius: u.uid === user?.uid ? 'var(--radius-sm)' : '0'
+                      }}
+                    >
+                      <div style={{ width: 32, fontSize: 16, textAlign: 'center' }}>
+                        {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : <span style={{ color: 'var(--text-muted)', fontSize: 12, fontWeight: 700 }}>#{i + 1}</span>}
+                      </div>
+                      <div style={{ flex: 1, fontWeight: u.uid === user?.uid ? 700 : 500, fontSize: 14, color: 'var(--text-primary)' }}>
+                        {u.name || 'Anonymous'}
+                        {u.uid === user?.uid && <span style={{ fontSize: 10, color: '#fbbf24', marginLeft: 8, background: 'rgba(251,191,36,0.1)', padding: '2px 6px', borderRadius: 4 }}>You</span>}
+                      </div>
+                      <div style={{ fontFamily: 'JetBrains Mono', fontWeight: 700, color: 'var(--accent-demand)', fontSize: 13 }}>
+                        {(u.energy_coins || 0).toLocaleString()} 🪙
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* My Activity */}
+            {!isGuest && (nudgeHistory.length > 0 || myReports.length > 0 || transactions.length > 0) && (
+              <div className="card">
+                <div className="card-header">
+                  <span className="card-title">📋 My Activity History</span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                  {/* Ledger Section */}
+                  {transactions.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: 12, letterSpacing: '0.5px' }}>Coin Ledger</div>
+                      {transactions.slice(0, 3).map((tx) => (
+                        <div key={tx.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 12 }}>
+                          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#fbbf24', marginTop: 6 }} />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 13, color: 'var(--text-primary)' }}>{tx.reason} <span style={{ color: '#fbbf24', fontWeight: 700 }}>+{tx.amount}</span></div>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{timeAgo(tx.timestamp)}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Reports Section */}
+                  {myReports.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: 12, letterSpacing: '0.5px' }}>My Reports</div>
+                      {myReports.slice(0, 3).map((r) => (
+                        <div key={r.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 12 }}>
+                          <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--status-low)', marginTop: 6 }} />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 13, display: 'flex', justifyContent: 'space-between', color: 'var(--text-primary)' }}>
+                              <span>{ISSUE_TYPES.find((t) => t.id === r.type)?.icon} {r.type}</span>
+                              {r.status === 'operator_resolved' && (
+                                <button className="btn btn-sm btn-primary" onClick={() => handleVerifyFix(r.id)} style={{ padding: '2px 8px', fontSize: 10 }}>Verify Fix (+5 🪙)</button>
+                              )}
+                              {r.status === 'verified_resolved' && <span style={{ color: 'var(--status-normal)', fontSize: 11, fontWeight: 700 }}>Verified</span>}
+                            </div>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{timeAgo(r.timestamp)}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
-                <div className="leaderboard-coins-val">{(u.energy_coins || 0).toLocaleString()} 🪙</div>
               </div>
-            ))}
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
