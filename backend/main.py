@@ -1,7 +1,7 @@
 """
 GridWise FastAPI Backend — ML Prediction Server
 ================================================
-Loads the trained linear regression model (and optionally the LSTM model)
+Loads the trained linear regression model  ( and optionally the LSTM model)
 and serves next-hour load predictions for all 20 grid zones.
 
 Run:
